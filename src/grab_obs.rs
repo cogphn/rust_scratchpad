@@ -1,11 +1,18 @@
-use std::env;
+//use std::env;
 use std::fs;
 use regex::Regex;
 use std::io::Write;
-//use serde_json::{json, Value};
 use std::fs::File;
 
 use std::collections::HashSet;
+use clap::Parser;
+
+
+#[derive(Parser)]
+struct Cli {
+    infile: std::path::PathBuf,
+    outfile: std::path::PathBuf
+}
 
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -16,18 +23,20 @@ struct Observable {
 
 pub fn main() {
 
-    println!("[*] Starting...");
 
-    let args: Vec<String> = env::args().collect();
+    let args = Cli::parse();
 
-    if args.len() < 2{
-        println!("    [!] Invalid arguments");
-        println!("[!] Finished with errors");
-        std::process::exit(1);
-    }
+    let infile = args.infile;
+    let outfile = args.outfile;
 
-    let filename : &str = &args[1];
+    let filename : &str = &infile.into_os_string().into_string().unwrap();
+    let outfile_str : &str = &outfile.into_os_string().into_string().unwrap();
+
+
     let text = fs::read_to_string(filename).expect("    [!] unable to read file");
+    
+    println!("[*] Running...");
+
 
     let ip_re : regex::Regex = Regex::new(r"\b(?:\d{1,3}\.){3}\d{1,3}\b").unwrap();
     let md5_re : regex::Regex  = Regex::new(r"\b[a-fA-F0-9]{32}\b").unwrap();
@@ -63,11 +72,9 @@ pub fn main() {
     all_observables.extend(unique_md5);
     all_observables.extend(unique_url);
 
-    println!("    [*] printing results");
-    println!("{:?}", all_observables);
 
-    println!("    [*] writing results to observables.csv");
-    let mut file = match File::create("observables.csv") {
+    println!("    [*] writing results to {:?}", outfile_str);
+    let mut file = match File::create(outfile_str) {
         Ok(f) => f,
         Err(error) => {
             println!("    [!] cannot open output file {:?}", error);
