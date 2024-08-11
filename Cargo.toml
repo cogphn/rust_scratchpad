@@ -1,0 +1,27 @@
+[package]
+name = "rsp2"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+reqwest = "0.12.5"
+tokio = { version="1.39.1", features = ["full"] }
+serde = { version="1.0.204", features = ["derive"] }
+serde_derive = "1.0.204"
+serde_json = "1.0.121"
+
+local-ip-address = { version="0.6.1", optional=true }
+gethostname = { version="0.5.0", optional=true }
+argparse = { version="0.2.2", optional=true }
+sqlx = { version = "0.8.0", features = ["runtime-tokio-native-tls", "sqlite"]}
+
+
+[[bin]]
+name = "bin1"
+path = "src/bin1.rs"
+
+[[bin]]
+name = "whereami"
+path = "src/whereami.rs"
+required-features = ["local-ip-address", "gethostname","argparse"]
+
