@@ -47,7 +47,6 @@ unsafe extern "system" fn event_callback(
             println!("{}", xml);
         }
         _ => {
-            // Handle other actions like EvtSubscribeActionError
             println!("Subscription action: {:?}", action);
         }
     }
@@ -87,12 +86,31 @@ fn main() -> Result<()> {
     let r = running.clone();
     ctrlc::set_handler(move || {
         r.store(false, Ordering::SeqCst);
-        println!("Ctrl+C received, shutting down...");
+        println!(" [!] Shutting down...");
     }).expect(" [!] some kind of error presumably.... shutting down");
     
     
+    let elog_scope = vec![
+        ElogChannel {channel_name: "Application".to_string(), query: "*".to_string()},
+        ElogChannel {channel_name: "System".to_string(), query: "*".to_string()},
+        ElogChannel {channel_name: "Security".to_string(), query: "*".to_string()}
+    ];
+
+    
+
     println!("[*] Subscribing to Windows Event Logs...");
 
+    let mut sub_handles = Vec::new();
+    for c in elog_scope {
+        let h = get_evt_sub_handle(&c.channel_name, &c.query);
+        if h.clone()?.is_invalid() {
+            let sub_err = windows::core::Error::from_win32();
+            eprintln!("    [!] failed to subscribe to event {:?} : {:?}", c.channel_name, sub_err);
+        }
+        sub_handles.push(h);
+    }
+
+    /*
     let app_subscription = get_evt_sub_handle("Application", "*");
     if app_subscription.clone()?.is_invalid() {
         let error = windows::core::Error::from_win32();
@@ -113,26 +131,23 @@ fn main() -> Result<()> {
         eprintln!(" [!] Failed to subscribe to event log: {:?}", error);
         return Err(error);
     }
-    
-    
+     */
     
     println!("[*] listening for events. Press Ctrl+C to stop.");
-    
-    /*
-    loop {
-        std::thread::sleep(std::time::Duration::from_secs(1));
-    } */
 
     while running.load(Ordering::SeqCst) {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
 
-    //#[allow(unreachable_code)]
-    // TODO: fix
     println!("[*] Exiting...");
     unsafe {
-        let _ = EvtClose(app_subscription?);
-        let _ = EvtClose( sys_subscription?);
+        //let _ = EvtClose(app_subscription?);
+        //let _ = EvtClose( sys_subscription?);
+        //let _ = EvtClose(sec_subscription?);
+        for h in sub_handles {
+            //println!("    - closing elog handle...");
+            let _ = EvtClose(h?);
+        }
     } 
     
     Ok(())
