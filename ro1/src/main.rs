@@ -1,27 +1,27 @@
 use windows::{
-    core::{Result, HSTRING, PCWSTR},
-    Win32::{self, Foundation::HSTR, System::EventLog::*},
+    core::{Result},
+    Win32::{System::EventLog::*},
 };
-//use windows::Win32::Foundation::{WIN32_ERROR};
-use std::{ffi::c_void, ptr, time::Duration};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 
+//use std::{rc, sync::atomic::{AtomicBool, Ordering}};
+use std::{sync::atomic::{AtomicBool, Ordering}};
+use std::sync::Arc;
 pub mod rtevents;
 pub mod wels;
 
 pub mod util;
 
 
-
-fn main() -> Result<()> {
-    
+#[tokio::main]
+async fn main() -> Result<()> {
     
 
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
+    let rc_rtevents = running.clone();
+
     ctrlc::set_handler(move || {
-        r.store(false, Ordering::SeqCst);
+        r.store(false, Ordering::SeqCst);        
         println!(" [*] Shutting down...");
     }).expect(" [!] some kind of error presumably.... shutting down");
     
@@ -43,15 +43,14 @@ fn main() -> Result<()> {
         }
         sub_handles.push(h);
     }
+    //println!("[*] listening for events. Press Ctrl+C to stop.");
 
-
-    println!("[*] listening for events. Press Ctrl+C to stop.");
+    let _ = rtevents::process_observer(rc_rtevents).await;
 
     while running.load(Ordering::SeqCst) {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
-
-    println!("[*] Exiting...");
+    
     unsafe {        
         for h in sub_handles {
             let _ = EvtClose(h?);
