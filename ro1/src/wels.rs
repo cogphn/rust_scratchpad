@@ -1,11 +1,11 @@
 use windows::{
     core::{Result, HSTRING, PCWSTR},
-    Win32::{self, Foundation::HSTR, System::EventLog::*},
+    Win32::{self, System::EventLog::*},
 };
 //use windows::Win32::Foundation::{WIN32_ERROR};
-use std::{ffi::c_void, ptr, string::FromUtf8Error, time::Duration};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::{ffi::c_void, ptr};
+// use std::sync::atomic::{AtomicBool, Ordering};
+// use std::sync::Arc;
 
 use super::util;
 
