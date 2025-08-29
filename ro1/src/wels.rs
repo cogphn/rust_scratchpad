@@ -2,12 +2,10 @@ use windows::{
     core::{Result, HSTRING, PCWSTR},
     Win32::{self, System::EventLog::*},
 };
-//use windows::Win32::Foundation::{WIN32_ERROR};
 use std::{ffi::c_void, ptr};
-// use std::sync::atomic::{AtomicBool, Ordering};
-// use std::sync::Arc;
 
 use super::util;
+use super::cache;
 
 #[derive(Debug)]
 pub struct ElogChannel {
@@ -57,10 +55,13 @@ pub unsafe extern "system" fn event_callback(
             //let xml = String::from_utf8_lossy(&buffer); //working - old 
             let xml = String::from_utf16_lossy(&buffer); // works
 
-            let jstr = util::evt_xml_to_json(xml);
-            //println!("{}", xml);
-            if let Ok(jstr_val) = jstr {
-                println!("{}", jstr_val);
+            
+            let jstr = util::evt_xml_to_json(xml);            
+            let jstr_parsed = cache::wel_json_to_er(&jstr.as_ref().unwrap_or(&"".to_string()));
+            if let Ok(er) = jstr_parsed {
+                println!("{:?}", er);
+            } else {
+                eprintln!("ERROR:  {:?}", jstr_parsed.err());
             }
         }
         _ => {
