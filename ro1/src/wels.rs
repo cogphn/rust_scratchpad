@@ -3,9 +3,11 @@ use windows::{
     Win32::{self, System::EventLog::*},
 };
 use std::{ffi::c_void, ptr};
+//use tokio;
 
 use super::util;
 use super::cache;
+use super::parser;
 
 #[derive(Debug)]
 pub struct ElogChannel {
@@ -51,15 +53,17 @@ pub unsafe extern "system" fn event_callback(
                      &mut buffer_used,
                      &mut property_count,
                  )
-             };
-            //let xml = String::from_utf8_lossy(&buffer); //working - old 
-            let xml = String::from_utf16_lossy(&buffer); // works
+            };
 
-            
-            let jstr = util::evt_xml_to_json(xml);            
-            let jstr_parsed = cache::wel_json_to_er(&jstr.as_ref().unwrap_or(&"".to_string()));
-            if let Ok(er) = jstr_parsed {
-                println!("{:?}", er);
+            let xml = String::from_utf16_lossy(&buffer); // works            
+            let jstr = util::evt_xml_to_json(xml);
+
+            let jstr_parsed = parser::wel_json_to_er(&jstr.as_ref().unwrap_or(&"".to_string()));
+            if let Ok(er) = jstr_parsed {                
+                println!("{:?}", er); // DEBUG
+                cache::get_runtime().spawn(async move {
+                    cache::insert_event(&er).await.ok();
+                });
             } else {
                 eprintln!("ERROR:  {:?}", jstr_parsed.err());
             }
