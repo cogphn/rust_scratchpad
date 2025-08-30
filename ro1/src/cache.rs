@@ -1,55 +1,95 @@
-//use duckdb::{Connection, Result};
-use std::fs;
-use serde_json::Value;
-use chrono::{DateTime, Utc, NaiveDateTime, ParseError};
+//use std::fs;
+//use serde_json::Value;
+use chrono::{NaiveDateTime};
 use serde::{Deserialize, Serialize};
+use std::sync::OnceLock;
+//use surrealdb::Surreal;
+//use surrealdb::engine::local::RocksDb;
+
+
+use tokio::runtime::Runtime;
 
 pub const CACHE_SCHEMA: &str = r#"
-CREATE SCHEMA telemetry;
-CREATE SEQUENCE telemseq;
-CREATE TABLE telemetry.events (
-  id INTEGER DEFAULT nextval('telemseq'),
+CREATE TABLE IF NOT EXISTS events (  
   ts TIMESTAMP, 
-  src VARCHAR, 
-  host VARCHAR,
-  context1 VARCHAR, 
-  context1_attrib VARCHAR,
-  context2 VARCHAR, 
-  context2_attrib VARCHAR,
-  context3 VARCHAR, 
-  context3_attrib VARCHAR,
-  rawevent VARCHAR
+  src TEXT, 
+  host TEXT,
+  context1 TEXT, 
+  context1_attrib TEXT,
+  context2 TEXT, 
+  context2_attrib TEXT,
+  context3 TEXT, 
+  context3_attrib TEXT,
+  rawevent TEXT
 );
-
 "#;
 
-#[derive(Deserialize,Debug)]
-#[derive(Serialize)]
-pub struct EventRecord {
-    ts: NaiveDateTime,
-    src: String,
-    host: String,
-    context1: String,
-    context1_attrib: String,
-    context2: String,
-    context2_attrib: String,
-    context3: String,
-    context3_attrib: String,
-    rawevent: String
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GenericEventRecord {
+    pub ts: NaiveDateTime,
+    pub src: String,
+    pub host: String,
+    pub context1: String,
+    pub context1_attrib: String,
+    pub context2: String,
+    pub context2_attrib: String,
+    pub context3: String,
+    pub context3_attrib: String,
+    pub rawevent: String
 }
 
-/* 
-pub fn initialize_cache(cache_path: &str) -> Result<Connection> {
-    let db_exists = std::path::Path::new(cache_path).exists();    
-    let conn = Connection::open(cache_path)?;
+pub static CACHE_CONN: OnceLock<libsql::Connection> = OnceLock::new();
+
+pub static TOKIO_RUNTIME: OnceLock<Runtime> = OnceLock::new();
+
+pub fn get_runtime() -> &'static Runtime {
+    TOKIO_RUNTIME.get_or_init(|| {
+        Runtime::new().expect("Failed to create Tokio runtime")
+    })
+}
+
+pub async fn initialize_cache(cache_path: &str) -> Result<(), libsql::Error> {
+    //let db_exists = std::path::Path::new(cache_path).exists();
+    let db = libsql::Builder::new_local(cache_path).build().await?;
+    let conn = db.connect().unwrap();
+    conn.execute(CACHE_SCHEMA, ()).await.unwrap();
+    CACHE_CONN.set(conn).map_err(|_| libsql::Error::ConnectionFailed(" [!] cache already initialized".into()))?;
+    Ok(())
+}
+
+pub async fn insert_event(event: &GenericEventRecord) -> Result<(), libsql::Error> {
+    let event_ts = event.ts.format("%Y-%m-%d %H:%M:%S").to_string();
+
+    let query = r#"
+    INSERT INTO events (ts, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    "#;
     
-    if !db_exists {
-        conn.execute_batch(&CACHE_SCHEMA)?;
-    }
+    let _conn = match CACHE_CONN.get() {
+        Some(c) => c.execute(query, (
+                    event_ts,
+                    event.src.clone(),
+                    event.host.clone(),
+                    event.context1.clone(),
+                    event.context1_attrib.clone(),
+                    event.context2.clone(),
+                    event.context2_attrib.clone(),
+                    event.context3.clone(),
+                    event.context3_attrib.clone(),
+                    event.rawevent.clone()
+                )).await?,
+        None => {
+            println!(" [!] error inserting event: cache not initialized");
+            return Err(libsql::Error::ConnectionFailed(" [!] cache not initialized".into()));
+        }
+    };
+        
+    
 
-    Ok(conn)
+    Ok(())
 }
-*/
+
+
 
 /*
 pub async fn insert_wel_event(conn: &Connection, event: &str) -> Result<()> {
@@ -73,133 +113,3 @@ pub async fn insert_wel_event(conn: &Connection, event: &str) -> Result<()> {
 }
  */
 
-/*
-pub fn parse_wel_event_draft(json_event: & str) -> Result<(EventRecord), Box<dyn std::error::Error>> {
-    let event_json: Value = serde_json::from_str(json_event)?;
-    let ts_str = event_json["Event"]["#c"][0]["System"]["#c"][0]["TimeCreated"]["#a"]["SystemTime"]
-        .as_str()
-        .ok_or("Missing or invalid TimeCreated")?;
-    let ts = DateTime::parse_from_rfc3339(ts_str)?.naive_utc();
-
-    let event_id = event_json["Event"]["#c"][0]["System"]["#c"][1]["EventID"]["#t"]
-        .as_str()
-        .unwrap_or("N/A")
-        .to_string();
-
-    let computer = event_json["Event"]["#c"][0]["System"]["#c"][4]["Computer"]["#t"]
-        .as_str()
-        .unwrap_or("N/A")
-        .to_string();
-
-    let provider = event_json["Event"]["#c"][0]["System"]["#c"][2]["Provider"]["#a"]["Name"]
-        .as_str()
-        .unwrap_or("N/A")
-        .to_string();
-
-    let level = event_json["Event"]["#c"][0]["System"]["#c"][3]["Level"]["#t"]
-        .as_str()
-        .unwrap_or("N/A")
-        .to_string();
-
-    Ok(EventRecord {
-        ts,
-        src: provider,
-        context1: event_id,
-        context1_attrib: level,
-        context2: computer,
-        context2_attrib: "N/A".to_string(),
-        context3: "N/A".to_string(),
-        context3_attrib: "N/A".to_string(),
-        rawevent: json_event.to_string(),
-    })
-
-}
- */
-// TOODO: put somewhere else 
-pub fn wel_json_to_er(event_str: &str) -> Result<EventRecord, Box<dyn std::error::Error>> {
-    let mut ret  = EventRecord {
-        ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
-        src: "WELS".to_string(),
-        host: "N/A".to_string(),
-        context1: "N/A".to_string(),
-        context1_attrib: "N/A".to_string(),
-        context2: "N/A".to_string(),
-        context2_attrib: "N/A".to_string(),
-        context3: "N/A".to_string(),
-        context3_attrib: "N/A".to_string(),
-        rawevent: event_str.to_string()
-    };
-
-    let event_json = serde_json::from_str::<serde_json::Value>(event_str).unwrap();
-    //let system_json_array = &str_json["Event"]["#c"][0]["System"]["#c"];
-    let system_json_array = &event_json["Event"]["#c"][0]["System"]["#c"];
-    let system_json_array = system_json_array.as_array();
-    /*
-    "Provider"
-    "EventID"
-    "Version"
-    "Level"
-    "Task"
-    "Opcode"
-    "Keywords"
-    "TimeCreated"
-    "EventRecordID"
-    "Correlation"
-    "Execution"
-    "Channel"
-    "Computer"
-    "Security" 
-    */
-    for a in system_json_array.iter() {
-        for val in a.iter() {
-            for k in val.as_object().expect("INVALID").keys() {
-                match k.as_str() {
-                    "Channel" => {
-                        ret.context1 = val["Channel"]["#a"]["Name"]
-                            .as_str()
-                            .unwrap_or("N/A")
-                            .to_string();
-                        ret.context1_attrib = "Channel".to_string();
-                    },
-                    "Provider" => {
-                        ret.context2 = val["Provider"]["#a"]["Name"]
-                            .as_str()
-                            .unwrap_or("N/A")
-                            .to_string();
-                        ret.context2_attrib = "Provider".to_string();
-                    },
-                    "EventID" => {
-                        ret.context3 = val["EventID"]["#t"]
-                            .as_str()
-                            .unwrap_or("N/A")
-                            .to_string();
-                        ret.context3_attrib = "EID".to_string();
-                    },
-                    "Computer" => {
-                        ret.host = val["Computer"]["#t"]
-                            .as_str()
-                            .unwrap_or("N/A")
-                            .to_string();                        
-                    },
-                    "TimeCreated" => {
-                        let ts_str = val["TimeCreated"]["@SystemTime"].to_string();
-                        let ts_str_cleaned = &ts_str.trim_matches('"');
-                        let parsed_datetime = DateTime::parse_from_rfc3339(&ts_str_cleaned).expect("1970-01-01T00:00:00").with_timezone(&Utc);
-                        let _ = match DateTime::parse_from_rfc3339(&ts_str_cleaned) {
-                            Ok(_dt) => {
-                                ret.ts = parsed_datetime.naive_utc()
-                            },
-                            Err(_) => {
-                                ret.ts = NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap()
-                            }
-                        };
-                        
-                    },
-                    _ => {}
-                }
-            }
-        }
-    }
-    Ok(ret)
-
-}
