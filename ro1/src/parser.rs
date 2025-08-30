@@ -1,0 +1,202 @@
+
+use chrono::{DateTime, Utc, NaiveDateTime, ParseError }; //, ParseError};
+use super::cache;
+use super::rtevents;
+use wmi::{Variant};
+use std::collections::HashMap;
+
+
+
+fn convert_wmi_datetime_to_datetime(wmi_date: &str) -> Result<NaiveDateTime, ParseError> { 
+    if wmi_date.len() < 14 {
+        return NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S");
+    }
+    let dt_str = &wmi_date[0..14];    
+    if let Ok(naive_dt) = NaiveDateTime::parse_from_str(dt_str, "%Y%m%d%H%M%S") {
+        return Ok(naive_dt);
+    } else {
+        return NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S");
+    }
+}
+
+
+
+pub fn proc_hm_to_pi(process: &HashMap<String, Variant>, classname: &str) -> Result<rtevents::ProcessInfo, Box<dyn std::error::Error>> {
+    
+    let hostname = rtevents::get_hostname();
+    let mut newproc: rtevents::ProcessInfo = rtevents::ProcessInfo { 
+        name: "N/A".to_string(),
+        hostname: hostname,
+        command_line: "N/A".to_string(),
+        parent_process_id: 0,
+        process_id: 0,
+        creation_date: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
+        executable_path:"N/A".to_string()
+    };
+    
+    if classname == "Win32_Process" {
+        newproc.name = match process.get("Name") {
+            Some(Variant::String(s)) => s.to_string(),
+            _ => "Unknown".to_string(),
+        };
+
+        newproc.command_line = match process.get("CommandLine") {
+            Some(Variant::String(s)) => s.to_string(),
+            Some(Variant::Null) => "None".to_string(),
+            _ => "Unknown".to_string(),
+        };
+        newproc.parent_process_id = match process.get("ParentProcessId") {
+            Some(Variant::UI4(id)) => *id,
+            Some(Variant::Null) => 0,   //TODO: fix
+            _ => 0,
+        };
+        newproc.process_id = match process.get("ProcessId") {
+            Some(Variant::UI4(id)) => *id,
+            Some(Variant::String(_s)) => 0,  //TODO: fix
+            _ => 0,
+        };
+        newproc.creation_date = match process.get("CreationDate") {
+            Some(Variant::String(s)) => convert_wmi_datetime_to_datetime(&s).unwrap(),            
+            _ => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
+        };
+    } else if classname == "Win32_ProcessStartTrace" {
+       
+        newproc.name = match process.get("ProcessName") {
+            Some(Variant::String(s)) => s.to_string(),
+            _ => "Unknown".to_string(),
+        };
+
+        newproc.parent_process_id = match process.get("ParentProcessID") {
+            Some(Variant::UI4(id)) => *id,
+            Some(Variant::Null) => 0,
+            _ => 0
+        };
+        newproc.process_id = match process.get("ProcessID") {
+            Some(Variant::UI4(id)) => *id,
+            Some(Variant::String(_s)) => 0, 
+            _ => 0
+        };
+
+
+         
+        let process_details = rtevents::get_process_details(newproc.process_id);
+        
+        newproc.command_line = match &process_details{ //TODO: fix 
+            Ok(details) => match details.get("CommandLine") {
+                Some(Variant::String(s)) => s.to_string(),
+                Some(Variant::Null) => "None".to_string(),
+                _ => "Unknown".to_string(),
+            },            
+            Err(_) => "N/A".to_string(),
+        };
+
+        newproc.creation_date = match &process_details{
+            Ok(procdetails) => match procdetails.get("CreationDate") {
+                Some(Variant::String(s)) => {
+                    convert_wmi_datetime_to_datetime(s).unwrap()
+                },                
+                _ => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
+            },
+            Err(_) => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
+        };
+
+
+    }
+    
+    return Ok(newproc);
+
+}
+
+
+pub fn pi_to_er(pi:&rtevents::ProcessInfo) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
+    let ret  = cache::GenericEventRecord {
+        ts: pi.creation_date,
+        src: "PROC".to_string(),
+        host: pi.hostname.clone(),
+        context1: pi.name.clone(),
+        context1_attrib: "ProcessName".to_string(),
+        context2: pi.process_id.to_string(),
+        context2_attrib: "PID".to_string(),
+        context3: pi.parent_process_id.to_string(),
+        context3_attrib: "PPID".to_string(),
+        //rawevent: format!("Path: {}, CommandLine: {}", pi.executable_path, pi.command_line)
+        rawevent: serde_json::to_string(pi).unwrap()
+    };
+    Ok(ret)
+}
+
+
+pub fn wel_json_to_er(event_str: &str) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
+    let mut ret  = cache::GenericEventRecord {
+        ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
+        src: "WELS".to_string(),
+        host: "N/A".to_string(),
+        context1: "N/A".to_string(),
+        context1_attrib: "N/A".to_string(),
+        context2: "N/A".to_string(),
+        context2_attrib: "N/A".to_string(),
+        context3: "N/A".to_string(),
+        context3_attrib: "N/A".to_string(),
+        rawevent: event_str.to_string()
+    };
+
+    let event_json = serde_json::from_str::<serde_json::Value>(event_str).unwrap();    
+    let system_json_array = &event_json["Event"]["#c"][0]["System"]["#c"];
+    let system_json_array = system_json_array.as_array();
+    /*
+    "Provider", "EventID", "Version", "Level", "Task", "Opcode", "Keywords", "TimeCreated",
+    "EventRecordID", "Correlation", "Execution", "Channel", "Computer", "Security" ,     
+    */
+    for a in system_json_array.iter() {
+        for val in a.iter() {
+            for k in val.as_object().expect("INVALID").keys() {
+                match k.as_str() {
+                    "Channel" => {
+                        ret.context1 = val["Channel"]["#t"]
+                            .as_str()
+                            .unwrap_or("N/A")
+                            .to_string();
+                        ret.context1_attrib = "Channel".to_string();
+                    },
+                    "Provider" => {
+                        ret.context2 = val["Provider"]["@Name"]
+                            .as_str()
+                            .unwrap_or("N/A")
+                            .to_string();
+                        ret.context2_attrib = "Provider".to_string();
+                    },
+                    "EventID" => {
+                        ret.context3 = val["EventID"]["#t"]
+                            .as_str()
+                            .unwrap_or("N/A")
+                            .to_string(); 
+                        ret.context3_attrib = "EID".to_string();
+                    },
+                    "Computer" => {
+                        ret.host = val["Computer"]["#t"]
+                            .as_str()
+                            .unwrap_or("N/A")
+                            .to_string();                        
+                    },
+                    "TimeCreated" => {
+                        let ts_str = val["TimeCreated"]["@SystemTime"].to_string();
+                        let ts_str_cleaned = &ts_str.trim_matches('"');
+                        let parsed_datetime = DateTime::parse_from_rfc3339(&ts_str_cleaned).expect("1970-01-01T00:00:00").with_timezone(&Utc);
+                        let _ = match DateTime::parse_from_rfc3339(&ts_str_cleaned) {
+                            Ok(_dt) => {
+                                ret.ts = parsed_datetime.naive_utc()
+                            },
+                            Err(_) => {
+                                ret.ts = NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap()
+                            }
+                        };
+                        
+                    },
+                    _ => {}
+                }
+            }
+        }
+    }
+    Ok(ret)
+
+}
