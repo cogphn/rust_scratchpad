@@ -10,6 +10,9 @@ pub mod rtevents;
 pub mod wels;
 
 pub mod util;
+pub mod cache;
+pub mod parser;
+
 
 
 #[tokio::main]
@@ -19,6 +22,7 @@ async fn main() -> Result<()> {
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
     let rc_rtevents = running.clone();
+    cache::initialize_cache("cache.db").await.expect(" [!] failed to initialize cache");
 
     ctrlc::set_handler(move || {
         r.store(false, Ordering::SeqCst);        
@@ -55,7 +59,7 @@ async fn main() -> Result<()> {
         for h in sub_handles {
             let _ = EvtClose(h?);
         }
-    } 
+    }
 
     println!("[.] Done.");
     
