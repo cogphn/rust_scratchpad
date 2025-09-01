@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 
 
-fn convert_wmi_datetime_to_datetime(wmi_date: &str) -> Result<NaiveDateTime, ParseError> { 
+pub fn convert_wmi_datetime_to_datetime(wmi_date: &str) -> Result<NaiveDateTime, ParseError> { 
     if wmi_date.len() < 14 {
         return NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S");
     }
@@ -25,25 +25,31 @@ pub fn proc_hm_to_pi(process: &HashMap<String, Variant>, classname: &str) -> Res
     
     let hostname = rtevents::get_hostname();
     let mut newproc: rtevents::ProcessInfo = rtevents::ProcessInfo { 
-        name: "N/A".to_string(),
+        name: "*NA".to_string(),
         hostname: hostname,
-        command_line: "N/A".to_string(),
+        command_line: "*NA".to_string(),
         parent_process_id: 0,
         process_id: 0,
         creation_date: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
-        executable_path:"N/A".to_string()
+        executable_path:"*NA".to_string(),
+        description: "*NA".to_string(),        
+        handle: "*NA".to_string(),        
+        handle_count: 0,
+        os_name: "*NA".to_string(),
+        windows_version: "*NA".to_string(),
+        session_id: 0        
     };
     
     if classname == "Win32_Process" {
         newproc.name = match process.get("Name") {
             Some(Variant::String(s)) => s.to_string(),
-            _ => "Unknown".to_string(),
+            _ => "*NA".to_string(),
         };
 
         newproc.command_line = match process.get("CommandLine") {
             Some(Variant::String(s)) => s.to_string(),
             Some(Variant::Null) => "None".to_string(),
-            _ => "Unknown".to_string(),
+            _ => "*NA".to_string(),
         };
         newproc.parent_process_id = match process.get("ParentProcessId") {
             Some(Variant::UI4(id)) => *id,
@@ -59,11 +65,35 @@ pub fn proc_hm_to_pi(process: &HashMap<String, Variant>, classname: &str) -> Res
             Some(Variant::String(s)) => convert_wmi_datetime_to_datetime(&s).unwrap(),            
             _ => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
         };
+        newproc.description = match process.get("Description") {
+            Some(Variant::String(s)) => s.to_string(),
+            Some(Variant::Null) => "*NA".to_string(),
+            _ => "*NA".to_string(),
+        };
+
+        newproc.executable_path = match process.get("ExecutablePath") {
+            Some(Variant::String(s)) => s.to_string(),
+            Some(Variant::Null) => "None".to_string(),
+            _ => "*NA".to_string(),
+        };
+        
+        newproc.handle = match process.get("Handle") {
+            Some(Variant::String(s)) => s.to_string(),
+            _ => "*NA".to_string(),
+        };
+
+        newproc.session_id = match process.get("SessionId") {
+            Some(Variant::UI4(id)) => *id,
+            Some(Variant::Null) => 0,
+            _ => 0,
+        };
+        
+
     } else if classname == "Win32_ProcessStartTrace" {
        
         newproc.name = match process.get("ProcessName") {
             Some(Variant::String(s)) => s.to_string(),
-            _ => "Unknown".to_string(),
+            _ => "*NA".to_string(),
         };
 
         newproc.parent_process_id = match process.get("ParentProcessID") {
@@ -76,16 +106,14 @@ pub fn proc_hm_to_pi(process: &HashMap<String, Variant>, classname: &str) -> Res
             Some(Variant::String(_s)) => 0, 
             _ => 0
         };
-
-
          
         let process_details = rtevents::get_process_details(newproc.process_id);
         
         newproc.command_line = match &process_details{ //TODO: fix 
             Ok(details) => match details.get("CommandLine") {
                 Some(Variant::String(s)) => s.to_string(),
-                Some(Variant::Null) => "None".to_string(),
-                _ => "Unknown".to_string(),
+                Some(Variant::Null) => "*NA".to_string(),
+                _ => "*NA".to_string(),
             },            
             Err(_) => "N/A".to_string(),
         };
@@ -100,6 +128,49 @@ pub fn proc_hm_to_pi(process: &HashMap<String, Variant>, classname: &str) -> Res
             Err(_) => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
         };
 
+        newproc.description = match &process_details{
+            Ok(details) => match details.get("Description") {
+                Some(Variant::String(s)) => s.to_string(),
+                Some(Variant::Null) => "*NA".to_string(),
+                _ => "*NA".to_string(),
+            },            
+            Err(_) => "*NA".to_string(),
+        };
+
+        newproc.executable_path = match &process_details{
+            Ok(details) => match details.get("ExecutablePath") {
+                Some(Variant::String(s)) => s.to_string(),
+                Some(Variant::Null) => "*NA".to_string(),
+                _ => "*NA".to_string(),
+            },            
+            Err(_) => "*NA".to_string(),
+        };
+
+        newproc.handle = match &process_details{
+            Ok(details) => match details.get("Handle") {
+                Some(Variant::String(s)) => s.to_string(),
+                _ => "*NA".to_string(),
+            },            
+            Err(_) => "*NA".to_string(),
+        };
+
+        newproc.session_id = match &process_details{
+            Ok(details) => match details.get("SessionId") {
+                Some(Variant::UI4(id)) => *id,
+                Some(Variant::Null) => 0,
+                _ => 0,
+            },            
+            Err(_) => 0,
+        };
+
+        newproc.os_name = match &process_details{
+            Ok(details) => match details.get("OSName") {
+                Some(Variant::String(s)) => s.to_string(),
+                Some(Variant::Null) => "*NA".to_string(),
+                _ => "*NA".to_string(),
+            },            
+            Err(_) => "*NA".to_string(),
+        };
 
     }
     
