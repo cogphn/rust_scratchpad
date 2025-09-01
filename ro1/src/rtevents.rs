@@ -8,7 +8,8 @@ use std::collections::HashMap;
 use futures::StreamExt;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use chrono::{DateTime, NaiveDateTime, Utc};
+//use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{NaiveDateTime};
 use std::sync::OnceLock;
 
 use super::parser;
@@ -21,11 +22,20 @@ struct Process {
     process_id: u32,
     name: String,
     executable_path: Option<String>,
-    command_line: Option<String>,
-    parent_process_id: u32,
-    creation_date: Option<DateTime<Utc>>
-    //creation_date: Option<String>
-    // TODO: look into other attribs 
+    command_line: Option<String>,    
+    creation_class_name: String,
+    caption: Option<String>,    
+    creation_date: Option<String>,    
+    cs_creation_class_name : Option<String>,    
+    cs_name : Option<String>,
+    description : Option<String>,    
+    execution_state : Option<u16>,
+    handle : Option<String>,
+    handle_count : Option<u32>,    
+    parent_process_id : Option<u32>,
+    os_name : Option<String>,
+    windows_version : Option<String>,
+    session_id : Option<u32>
 }
 
 #[derive(Deserialize,Debug)]
@@ -37,7 +47,15 @@ pub struct ProcessInfo {
     pub executable_path: String,
     pub command_line: String,
     pub parent_process_id: u32,
-    pub creation_date: NaiveDateTime
+    pub creation_date: NaiveDateTime,
+    pub description: String,
+    //pub execution_state: u16,
+    pub handle: String,
+    //pub install_date: NaiveDateTime,
+    pub handle_count: u32,
+    pub os_name: String,
+    pub windows_version: String,
+    pub session_id: u32,
 }
 
 pub static HOSTNAME: OnceLock<String> = OnceLock::new();
@@ -74,7 +92,7 @@ pub fn get_hostname() -> String {
 
 
 
-
+/*
 pub fn get_process_list() -> wmi::WMIResult<()> {
     let com_lib = COMLibrary::new()?;
     let wmi_con = WMIConnection::new(com_lib)?;
@@ -95,20 +113,38 @@ pub fn get_process_list() -> wmi::WMIResult<()> {
 
     Ok(())
 }
-
-/*
-pub fn get_process_listv2() -> Result<(), std::error::Error> {
-
-    let com_con = COMLibrary::new()?;
-    let wmi_con = WMIConnection::new(com_con);
-    let initial_processes: Vec<HashMap<String, Variant>> = wmi_con.raw_query("SELECT Name, ProcesId, CommandLine FROM Win32_Process")?;
-    return initial_processes;
-
-}
 */
 
 
+pub fn get_process_list() -> Result<Vec<ProcessInfo>, Box<dyn std::error::Error>> {
+    let com_lib = COMLibrary::new()?;
+    let wmi_con = WMIConnection::new(com_lib)?;
+    let processes: Vec<Process> = wmi_con.query()?;
+    let process_infos: Vec<ProcessInfo> = processes
+        .into_iter()
+        .map(|p| { 
+            ProcessInfo { 
+                process_id: p.process_id,
+                hostname: get_hostname(),
+                name: p.name,
+                executable_path: p.executable_path.unwrap_or_default(),
+                command_line: p.command_line.unwrap_or_default(),
+                parent_process_id: p.parent_process_id.unwrap_or(0 as u32),
+                creation_date: parser::convert_wmi_datetime_to_datetime(&p.creation_date.unwrap_or_default()).expect("1970-01-01T00:00:00"),
+                description: p.description.unwrap_or_default(),
+                handle: p.handle.unwrap_or_default(),
+                handle_count: p.handle_count.unwrap_or_default(),
+                os_name: p.os_name.unwrap_or_default(),
+                windows_version: p.windows_version.unwrap_or_default(), 
+                session_id: p.session_id.unwrap_or_default()
+            }
+        }).collect();
+    // TODO: write to cache 
+    
+    return Ok(process_infos);
 
+    //Ok(())
+}
 
 pub async fn process_observer(running: Arc<AtomicBool>) -> Result<(), Box<dyn std::error::Error>> {
     println!(" [*] Monitoring for new process creation...\n");
@@ -129,7 +165,7 @@ pub async fn process_observer(running: Arc<AtomicBool>) -> Result<(), Box<dyn st
                 match event {
                     Ok(process) => {                        
                         //print_process_info(&process, "Win32_ProcessStartTrace");
-                        let newproc = match parser::proc_hm_to_pi(&process, "Win32_ProcessStartTrace") {
+                        let _newproc = match parser::proc_hm_to_pi(&process, "Win32_ProcessStartTrace") {
                             Ok(pi) => {
                                 println!("{}",serde_json::to_string(&pi).unwrap());    
                                 let parsed_procinfo = parser::pi_to_er(&pi);
@@ -155,101 +191,7 @@ pub async fn process_observer(running: Arc<AtomicBool>) -> Result<(), Box<dyn st
     Ok(())
 }
 
-
-
-
-
-fn print_process_info(process: &HashMap<String, Variant>, classname: &str) {
-    /*
-    let hostname = get_hostname();
-    let mut newproc: ProcessInfo = ProcessInfo { 
-        name: "N/A".to_string(),
-        hostname: hostname,
-        command_line: "N/A".to_string(),
-        parent_process_id: 0,
-        process_id: 0,
-        creation_date: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
-        executable_path:"N/A".to_string()
-    };
-    
-    if classname == "Win32_Process" {
-        newproc.name = match process.get("Name") {
-            Some(Variant::String(s)) => s.to_string(),
-            _ => "Unknown".to_string(),
-        };
-
-        newproc.command_line = match process.get("CommandLine") {
-            Some(Variant::String(s)) => s.to_string(),
-            Some(Variant::Null) => "None".to_string(),
-            _ => "Unknown".to_string(),
-        };
-        newproc.parent_process_id = match process.get("ParentProcessId") {
-            Some(Variant::UI4(id)) => *id,
-            Some(Variant::Null) => 0,   //TODO: fix
-            _ => 0,
-        };
-        newproc.process_id = match process.get("ProcessId") {
-            Some(Variant::UI4(id)) => *id,
-            Some(Variant::String(_s)) => 0,  //TODO: fix
-            _ => 0,
-        };
-        newproc.creation_date = match process.get("CreationDate") {
-            Some(Variant::String(s)) => convert_wmi_datetime_to_datetime(s).unwrap(),            
-            _ => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
-        };
-    } else if classname == "Win32_ProcessStartTrace" {
-       
-        newproc.name = match process.get("ProcessName") {
-            Some(Variant::String(s)) => s.to_string(),
-            _ => "Unknown".to_string(),
-        };
-
-        newproc.parent_process_id = match process.get("ParentProcessID") {
-            Some(Variant::UI4(id)) => *id,
-            Some(Variant::Null) => 0,
-            _ => 0
-        };
-        newproc.process_id = match process.get("ProcessID") {
-            Some(Variant::UI4(id)) => *id,
-            Some(Variant::String(_s)) => 0, 
-            _ => 0
-        };
-
-
-         
-        let process_details = get_process_details(newproc.process_id);
-        
-        newproc.command_line = match &process_details{ //TODO: fix 
-            Ok(details) => match details.get("CommandLine") {
-                Some(Variant::String(s)) => s.to_string(),
-                Some(Variant::Null) => "None".to_string(),
-                _ => "Unknown".to_string(),
-            },            
-            Err(_) => "N/A".to_string(),
-        };
-
-        newproc.creation_date = match &process_details{
-            Ok(procdetails) => match procdetails.get("CreationDate") {
-                Some(Variant::String(s)) => {
-                    convert_wmi_datetime_to_datetime(s).unwrap()
-                },                
-                _ => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
-            },
-            Err(_) => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
-        };
-
-
-    }
-
-    let parsed_procinfo = parser::procdetails_to_er(&newproc);
-    let _ = cache::get_runtime().spawn(async move {
-        if let Ok(er) = parsed_procinfo {
-            cache::insert_event(&er).await.ok();
-        }
-    });
-
-    println!("{}",serde_json::to_string(&newproc).unwrap());    
-    */
+fn print_process_info(process: &HashMap<String, Variant>, classname: &str) {    
     let newproc = match parser::proc_hm_to_pi(process, classname) {
         Ok(p) => p,
         Err(e) => {
@@ -267,7 +209,10 @@ pub fn get_process_details(process_id: u32) -> Result<HashMap<String, Variant>, 
     let com_con = COMLibrary::new()?;
     let wmi_con = WMIConnection::new(com_con)?;
 
-    let query = format!("SELECT CreationDate, Name, ProcessId, CommandLine, ParentProcessId FROM Win32_Process WHERE ProcessId = {}", process_id);
+    let query = format!(r#"SELECT CreationDate, Name, ProcessId, CommandLine, ParentProcessId, ExecutablePath, 
+                        Description, ExecutionState, Handle, InstallDate, OSName, WindowsVersion, SessionId
+                         FROM Win32_Process WHERE ProcessId = {}"#
+                         , process_id);
     let results: Vec<HashMap<String, Variant>> = wmi_con.raw_query(&query)?;
 
     if let Some(process) = results.into_iter().next() {
