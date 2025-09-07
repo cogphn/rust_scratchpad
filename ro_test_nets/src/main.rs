@@ -13,16 +13,29 @@ use ferrisetw::provider::EventFilter;
 
 static N_EVENTS: AtomicU32 = AtomicU32::new(0);
 
+mod templates;
 
 /*
 Review:
 
  - https://github.com/Microsoft/perfview/blob/main/src/TraceEvent/Parsers/Microsoft-Windows-TCPIP.cs#L19201
 
-
 */
 
 
+fn hex_to_ipv4(hex_str: &str) -> Option<String> {
+    if hex_str.len() != 16 {
+        Some("Invalid arguments");
+    }
+    let bytes = (0..16)
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&hex_str[i..i + 2], 16).ok())
+        .collect::<Option<Vec<u8>>>()?;
+    let ip_addr = format!("{}.{}.{}.{}", bytes[4], bytes[5], bytes[6], bytes[7]);
+    Some(ip_addr)
+}
+
+/*
 fn kern_net_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
     N_EVENTS.fetch_add(1, Ordering::SeqCst);
 
@@ -36,7 +49,7 @@ fn kern_net_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
         }
     }
 }
-
+*/
 fn dns_etw_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
     N_EVENTS.fetch_add(1, Ordering::SeqCst);
 
@@ -78,213 +91,203 @@ fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
     */
 
     //looks like I can just grab field names from the EventData portion of the event log xml
-    let event_desc = match record.event_id() {
-        0 => "TcpIp/invalid",
-        1214 => "TcpIp/packet_drop",
-        1193 => "TcpIp/port_release",
-        1038 => "TcpIp/connection_close_issued", // in-scope
-        1040 => "TcpIp/connection_abort_complete", // in-scope
-        1044 => "TcpIp/connection_abort", // in-scope
-        1039 => "TcpIp/connection_abort_issued", // in-scope
-        1479 => "TcpIp/connection_sent_RST", // in-scope
-        1324 => "TcpIp/neighbor_state_change",
-        1033 => "TcpIp/connect_complete", // in-scope
-        1002 => "TcpIp/connect_request", // in-scope
-        1013 => "TcpIp/connect_proceeding", // in-scope
-        1001 => "TcpIp/endpoint_created", // in-scope
-        1002 => "TcpIp/requested_to_connect",
-        1003 => "TcpIp/inspect_connect_complete",
-        1004 => "TcpIp/Tcb_is_going_to_output_SYN",
-        1008 => "TcpIp/endpoint_bound",
-        1009 => "TcpIp/endpoint_closed",
-        1031 => "TcpIp/connection_connect_proceeding",
-        1033 => "TcpIp/connect_complete", //in-scope
-        1034 => "TcpIp/connection_attempt_failed",
-        1042 => "TcpIp/connection_disconnect_issued",
-        1043 => "TcpIp/connection_disconnect_completed",
-        1051 => "TcpIp/connection_transition",
-        1074 => "TcpIp/connection_received_data",
-        1104 => "TcpIp/option_set_for_connection",
-        1105 => "TcpIp/socket_set_for_connection",
-        1156 => "TcpIp/connection_posted",
-        1157 => "TcpIp/connection_indicated_bytes_accepted",
-        1158 => "TcpIp/connection_delivery_satisfied",
-        1159 => "TcpIp/connection_send_posted_bytes",
-        1167 => "TcpIp/connection_measurement_complete",
-        1169 => "Udp/sending_message",
-        1170 => "UDP/delivering_bytes",
-        1176 => "TcpIp/connection_delivering_FIN",
-        1183 => "TcpIp/connection_connect_failed",
-        1186 => "TcpIp/retransmitting_connection_attempt",
-        1188 => "TcpIp/connection_send_keep_alive",
-        1191 => "TcpIp/endpoint_or_connection_acquired_port_number",
-        1192 => "TcpIp/connection_attempted_to_acquire_weak_reference_on_port",
-        1193 => "TcpIp/endpoint_or_connection_released_port_number",
-        1196 => "TcpIp/connection_BH_receive_ACK",
-        1202 => "TcpIp/interface_rundown",
-        1203 => "TcpIp/interface_linkspeed_change",
-        1214 => "TcpIp/transport_dropped_packets",
-        1215 => "TcpIp/network_layer_dropped_packet",
-        1223 => "TcpIp/connection_committed",
-        1229 => "TcpIp/send_queue_idle",
-        1300 => "TcpIp/connection_exists", // in scope
-        1330 => "TcpIp/connection_cumulative_ack_event",
-        1332 => "TcpIp/connection_send-event",
-        1351 => "TcpIp/connection_send_retransmit_round_with_snduna",
-        1377 => "WFP-ALE/leaving_low_memory_state",
-        1391 => "Udp/endpoint_created",
-        1396 => "TcpIp/endpoint_bound_pid",
-        1397 => "Udp/endpoint_closed",
-        1398 => "Udp/endpoint_closed",
-        1429 => "TcpIp/connection_cumulative_ack_event",
-        1452 => "TcpIp/route_rundown",
-        1454 => "INETINSPECT",
-        1455 => "INETINSPECT",
-        1466 => "WFP-ALE/remoteendpoint_insertion",
-        1467 => "WFP-ALE/remote_endpoint_deletion",
-        1475 => "TcpIp/CUBIC_hystart_state_change_event",
-        1479 => "TcpIp/connection_sent_rst",
-        1486 => "TcpIp/status_indication_received",
-        1516 => "TcpIp/software_rsc",
-        _ => "Unknown",
+    let event_desc = match record.event_id() {        
+        1002 => "TcpRequestConnect",
+        1014 => "TcpAccpetListenerRouteLookupFailure",
+        1015 => "TcpAcceptListenerInsertionFailure",
+        1016 => "TcpAcceptListenerRejected",
+        1017 => "TcpAcceptListenerComplete",
+        1018 => "TcpConnectTcbFailedAf",
+        1019 => "TcpConnectTcbFailedCompartment",
+        1020 => "TcpConnectTcbFailedInspect",
+        1021 => "TcpConnectTcbFailedRoute",
+        1022 => "TcpConnectTcbSkipRateLimit",
+        1023 => "TcpConnectTcbPassRateLimit",
+        1024 => "TcpConnectTcbCheckRateLimit",
+        1026 => "TcpRateLimitPathRelease",
+        1027 => "TcpConnectTcbRateLimitRelease",
+        1028 => "TcpRateLimitPathCancel",
+        1029 => "TcpConnectTcbCancel",
+        1030 => "TcpConnectTcbFailInsertion",
+        1031 => "TcpConnectTcbProceeding",
+        1032 => "TcpConnectTcbRateLimitCancel",
+        1033 => "TcpConnectTcbComplete",
+        1034 => "TcpConnectTcbFailure",
+        1035 => "TcpConnectTcbFailInspectConnectComplete",
+        1036 => "TcpConnectTcbFailSessionState",
+        1037 => "TcpConnectTcbFailDontFragment",
+        1038 => "TcpCloseTcbRequest",
+        1039 => "TcpAbortTcbRequest",
+        1040 => "TcpAbortTcbComplete",
+        1043 => "TcpDisconnectTcbComplete",
+        1044 => "TcpShutdownTcb",
+        1045 => "TcpConnectTcbTimeout",
+        1046 => "TcpDisconnectTcbRtoTimeout",
+        1047 => "TcpDisconnectTcbKeepaliveTimeout",
+        1048 => "TcpDisconnectTcbTimeout",
+        1049 => "TcpConnectTcbEstatsFailed",
+        1050 => "TcpConnectFailedPortAcquire",
+        1092 => "TcpAutoTuningBegin",
+        1093 => "TcpAutoTuningEnd",
+        1094 => "TcpAutoTuningFailedRttEstimation",
+        1095 => "TcpAutoTuningFailedBandwidthEstimation",
+        1096 => "TcpAutoTuningFailedAllocationFailure",
+        1097 => "TcpAutoTuningChangeRcvBufferSize",
+        1182 => "TcpInitiateSynRstValidation",
+        1183 => "TcpConnectTcbFailedRcvdRst",
+        1184 => "TcpConnectionTerminatedRcvdRst",
+        1185 => "TcpConnectionTerminatedRcvdSyn",
+        1186 => "TcpConnectRestransmit",
+        1187 => "TcpDataTransferRestransmit",
+        1200 => "TcpDisconnectTcbZeroWindowTimeout",
+        1201 => "TcpDisconnectTcbFinWait2Timeout",
+        1293 => "Ndkpi_Read",
+        1294 => "Ndkpi_Write",
+        1300 => "TcpConnectionRundown",
+        1357 => "TcpipAoacFailFast",
+        1364 => "TcpInsertConnectionTuple",
+        1365 => "TcpRemoveConnectionTuple",
+        1374 => "RemoteEndpoint",
+        1375 => "RemoteEndpoint1375",
+        1382 => "TcpInspectConnectWithNameResContext",
+        1466 => "RemoteEndpoint1466",
+        1467 => "RemoteEndpoint1467",
+        1468 => "TcpSystemAbortTcb",
+        1477 => "TcpConnectionSummary1477",
+        _ => "Other",
     };
-    // Properties to find: 
-    /*
-     - Endpoint
-     - NumMessages
-     - NumBytes
-     - LocalSockAddrLength
-     - LocalSockAddr
-     - RemoteSockAddrLength
-     - RemoteSockAddr
-     - Pid
-     - ProcessStartKey
-    */
 
-    if record.event_id() == 1074 { 
-        // connection received data 
-        let tcb: Option<Vec<u8>> = parser.try_parse("Tcb").ok();
-        let num_bytes: Option<u32> = parser.try_parse("NumBytes").ok();
-        let seqno: Option<u32> = parser.try_parse("SeqNo").ok();
-
-        println!(
-            "event_id: {}, event_desc: {} \ntcb: {:?}\nnum_bytes: {}\nseqno: {}",
-            record.event_id(),
-            event_desc,
-            tcb.map(|v| format!("{:X?}", v)).unwrap_or_default(),
-            num_bytes.map(|u| u.to_string()).unwrap_or_default(),
-            seqno.map(|u| u.to_string()).unwrap_or_default(),
-            
-        );
-        println!("-----------------------------------");
-
-    } else if record.event_id() == 1002 {
-        let tcb: Option<Vec<u8>> = parser.try_parse("Tcb").ok();
-        let local_address_length: Option<u32> = parser.try_parse("LocalAddressLength").ok();
-        let local_address: Option<Vec<u8>> = parser.try_parse("LocalAddress").ok();
-        let remote_address_length: Option<u32> = parser.try_parse("RemoteAddressLength").ok();
-        let remote_address: Option<Vec<u8>> = parser.try_parse("RemoteAddress").ok();
-        let new_state: Option<u32> = parser.try_parse("NewState").ok();
-        let rexmit_count: Option<u32> = parser.try_parse("RexmitCount").ok();
-
-        println!("addr_length: {:?}", local_address.clone().unwrap_or_default().len());
-
-        let mut local_address_str = String::new();
-        let laddr_length = local_address_length.unwrap_or_default() as usize;
-        let local_address_trimmed = &local_address.clone().unwrap_or_default()[0..laddr_length/2].to_vec();
-        for byte in &local_address_trimmed.clone() {
-            local_address_str.push_str(&format!("{:02x?}", byte)); //works when tested against https://www.browserling.com/tools/hex-to-ip
-        }
-
-        println!("Tcb: {:?}\nLocal Address Length: {:?}\nLocal Address: {:x?} ({})\nRemote Address Length:{:?}\nRemote Address: {:?}\nNew State: {:?}\nRexmit Count: {:?}",
-            tcb.map(|v| format!("{:X?}", v)).unwrap_or_default(), 
-            local_address_length.unwrap_or_default(),
-            local_address.unwrap_or_default(),
-            local_address_str,
-            remote_address_length.unwrap_or_default(),
-            remote_address,
-            new_state,
-            rexmit_count
-        );
-        println!("-----------------------------------");
-
-    } else if record.event_id() == 1001 {
-        //TCP endpoint created 
-        let satus: Option<u32> = parser.try_parse("Status").ok();
-        let endpoint: Option<Vec<u8>> = parser.try_parse("Endpoint").ok();
-
-        let attr1: Option<u32> = parser.try_parse("Endpoint").ok();
-        let attr2: Option<u16> = parser.try_parse("Endpoint").ok();
-        let attr3: Option<String> = parser.try_parse("Endpoint").ok();    
-        let attr4: Option<String> = parser.try_parse("Endpoint").ok();
-        let attr5: Option<Vec<u8>> = parser.try_parse("Endpoint").ok(); // binary data
-        let attr6: Option<String> = parser.try_parse("Endpoint").ok();
-        //let attr5: Option<Vec<u8>> = parser.try_parse("RawData").ok(); // binary data
-
-        
-        
-
-        println!(
-            "event_id: {:?}, event_desc: {:?}\nattr1: {:?}\nattr2: {:?}\nattr3: {:?}\nattr4:{:?}\nattr5: {:x?}\nattr6:{:?}",
-            record.event_id(),
-            event_desc,
-            
-            attr1.map(|u| u.to_string()).unwrap_or_default(),
-            attr2.map(|u| u.to_string()).unwrap_or_default(),
-            attr3.map(|u| u.to_string()).unwrap_or_default(),        
-            attr4
-                .map(|s| truncate(&s, 15).to_owned())
-                .unwrap_or_default(),
-            attr5.map(|v| format!("{:?}", v)).unwrap_or_default(),
-            attr6
-                .map(|s| truncate(&s, 15).to_owned())
-                .unwrap_or_default(),
-        );
-        println!("-----------------------------------");
-    } else {
-        let status: Option<u32> = parser.try_parse("Status").ok();
-        let endpoint: Option<Vec<u8>> = parser.try_parse("Endpoint").ok(); // fix display - looks like a hex string in the event viewer 
-        let num_messages: Option<u32> = parser.try_parse("NumMessages").ok();
-        let num_bytes: Option<u32> = parser.try_parse("NumBytes").ok();
-        let num_bytes: Option<u32> = parser.try_parse("NumBytes").ok();
-
-
-
-        let attr1: Option<u32> = parser.try_parse("Pid").ok();
-        let attr2: Option<u16> = parser.try_parse("Pid").ok();
-        let attr3: Option<String> = parser.try_parse("Pid").ok();    
-        let attr4: Option<String> = parser.try_parse("Pid").ok();
-        let attr6: Option<String> = parser.try_parse("Pid").ok();
-        //let attr5: Option<Vec<u8>> = parser.try_parse("RawData").ok(); // binary data
-        let attr5: Option<Vec<u8>> = parser.try_parse("Pid").ok(); // binary data
-        
-        /*
-        println!(
-            "event_id: {:?}, event_desc: {:?}, status: {:?}\nattr1: {:?}\nattr2: {:?}\nattr3: {:?}\nattr4:{:?}\nattr5: {:x?}\nattr6:{:?}",
-            record.event_id(),
-            event_desc,
-            status.map(|u| u.to_string()).unwrap_or_default(),
-            attr1.map(|u| u.to_string()).unwrap_or_default(),
-            attr2.map(|u| u.to_string()).unwrap_or_default(),
-            attr3.map(|u| u.to_string()).unwrap_or_default(),        
-            attr4
-                .map(|s| truncate(&s, 15).to_owned())
-                .unwrap_or_default(),
-            attr5.map(|v| format!("{:?}", v)).unwrap_or_default(),
-            attr6
-                .map(|s| truncate(&s, 15).to_owned())
-                .unwrap_or_default(),
-        );
-        println!("-----------------------------------");
-        */
-        
+    if event_desc == "Other"{ // TODO: fix filters
+        return;
     }
+    println!("----START----");
+
+    //println!("{:?}", record.timestamp());
+
+    let mut net_event_data = templates::GeneralNetEvent {
+        timestamp: record.timestamp().to_string(),
+        event_id: record.event_id(),
+        event_description: event_desc.to_string(),
+        tcb: parser.try_parse("Tcb").ok(), 
+        local_address_length: parser.try_parse("LocalAddressLength").ok(),
+        local_address: parser.try_parse("LocalAddress").ok(),
+        remote_address_length: parser.try_parse("RemoteAddressLength").ok(),
+        remote_address: parser.try_parse("RemoteAddress").ok(),
+        new_state: parser.try_parse("NewState").ok(),
+        rexmit_count: parser.try_parse("RexmitCount").ok(),
+        status: parser.try_parse("Status").ok(),
+        process_id: parser.try_parse("ProcessId").ok(),
+        compartment: parser.try_parse("Compartment").ok(),
+        path: parser.try_parse("Path").ok(),
+        buffer_size: parser.try_parse("BufferSize").ok(),
+        ndk_qp: parser.try_parse("NdkQp").ok(),
+        request_context: parser.try_parse("RequestContext").ok(),
+        sge_address: parser.try_parse("SgeAddress").ok(),
+        sge_length: parser.try_parse("SgeLength").ok(),
+        sge_memory_region_token: parser.try_parse("SgeMemoryRegionToken").ok(),
+        num_sge: parser.try_parse("NumSge").ok(),
+        flags: parser.try_parse("Flags").ok(),
+        sge_index: parser.try_parse("SgeIndex").ok(),
+        remote_token: parser.try_parse("RemoteToken").ok(),
+        state: parser.try_parse("State").ok(),
+        pid: parser.try_parse("Pid").ok(),
+        request_type: parser.try_parse("RequestType").ok(),
+        tcb_or_endpoint: parser.try_parse("TcbOrEndpoint").ok(),
+        interface_index: parser.try_parse("InterfaceIndex").ok(),
+        address_length: parser.try_parse("AddressLength").ok(),
+        remote_port: parser.try_parse("RemotePort").ok(),
+        local_port: parser.try_parse("LocalPort").ok(),
+        partition_id: parser.try_parse("PartitionId").ok(),
+        num_entries: parser.try_parse("NumEntries").ok(),
+        name_res_context: parser.try_parse("NameResContext").ok(),
+        dns_name: parser.try_parse("DnsName").ok(),
+        data_bytes_out: parser.try_parse("DataBytesOut").ok(),
+        data_bytes_in: parser.try_parse("DataBytesIn").ok(),
+        data_segments_out: parser.try_parse("DataSegmentsOut").ok(),
+        data_segments_in: parser.try_parse("DataSegmentsIn").ok(),
+        segments_out: parser.try_parse("SegmentsOut").ok(),
+        segments_in: parser.try_parse("SegmentsIn").ok(),
+        non_recov_da: parser.try_parse("NonRecovDa").ok(),
+        non_recov_da_episodes: parser.try_parse("NonRecovDaEpisodes").ok(),
+        dup_acks_in: parser.try_parse("DupAcksIn").ok(),
+        bytes_retrans: parser.try_parse("BytesRetrans").ok(),
+        timeouts: parser.try_parse("Timeouts").ok(),
+        spurious_rto_detections: parser.try_parse("SpuriousRtoDetections").ok(),
+        fast_retran: parser.try_parse("FastRetran").ok(),
+        max_ssthresh: parser.try_parse("MaxSsthresh").ok(),
+        max_ss_cwnd: parser.try_parse("MaxSsCwnd").ok(),
+        max_ca_cwnd: parser.try_parse("MaxCaCwnd").ok(),
+        snd_lim_trans_rwin: parser.try_parse("SndLimTransRwin").ok(),
+        snd_lim_time_rwin: parser.try_parse("SndLimTimeRwin").ok(),
+        snd_lim_bytes_rwin: parser.try_parse("SndLimBytesRwin").ok(),
+        snd_lim_trans_cwnd: parser.try_parse("SndLimTransCwnd").ok(),
+        snd_lim_time_cwnd: parser.try_parse("SndLimTimeCwnd").ok(),
+        snd_lim_bytes_cwnd: parser.try_parse("SndLimBytesCwnd").ok(),
+        snd_lim_trans_snd: parser.try_parse("SndLimTransSnd").ok(),
+        snd_lim_time_r_snd: parser.try_parse("SndLimTimeRSnd").ok(),
+        snd_lim_bytes_r_snd: parser.try_parse("SndLimBytesRSnd").ok(),
+        connection_time_ms: parser.try_parse("ConnectionTimeMs").ok(),
+        timestamps_enabled: parser.try_parse("TimestampsEnabled").ok(),
+        rtt_us: parser.try_parse("RttUs").ok(),
+        min_rtt_us: parser.try_parse("MinRttUs").ok(),
+        max_rtt_us: parser.try_parse("MaxRttUs").ok(),
+        syn_retrans: parser.try_parse("SynRetrans").ok(),
+        congestion_algorithm: parser.try_parse("CongestionAlgorithm").ok(),
+        cwnd: parser.try_parse("Cwnd").ok(),
+        ss_thresh: parser.try_parse("SSThresh").ok(),
+        rcv_wnd: parser.try_parse("RcvWnd").ok(),
+        rcv_buf: parser.try_parse("RcvBuf").ok(),
+        snd_wnd: parser.try_parse("SndWnd").ok(),
+        process_start_key: parser.try_parse("ProcessStartKey").ok(),
+        local_address_ipv4: "".to_string(),
+        remote_address_ipv4: "".to_string()
+    };
+
+    let mut local_address_str = String::new();
+    let laddr_length = net_event_data.local_address_length.unwrap_or_default() as usize;
+    let mut remote_address_str = String::new();
+    let raddr_length = net_event_data.remote_address_length.unwrap_or_default() as usize;
 
     
+    if laddr_length > 15 {
+        let local_address_trimmed = &net_event_data.local_address.clone().unwrap_or_default()[0..laddr_length/2].to_vec();
+        for byte in &local_address_trimmed.clone() {
+            local_address_str.push_str(&format!("{:02x?}", byte)); //
+        }
+        net_event_data.local_address_ipv4 = hex_to_ipv4(&local_address_str).unwrap_or_default();
+    }
     
+    if raddr_length > 15 {
+        let raddr_trimmed = &net_event_data.remote_address.clone().unwrap_or_default()[0..raddr_length/2].to_vec();
+        for byte in &raddr_trimmed.clone() {
+            remote_address_str.push_str(&format!("{:02x?}", byte));
+        }
+        net_event_data.remote_address_ipv4 = hex_to_ipv4(&remote_address_str).unwrap_or_default();
+    }
+    
+    // DBG1
+    //println!(
+    // "[DBG][{}][{}], {:?}, {:?}, {}, {}, laddr_length: {}, raddr_length: {}",
+    // record.event_id(),
+    // event_desc,
+    // net_event_data.local_address,
+    // net_event_data.remote_address,
+    // net_event_data.local_address_ipv4,
+    // net_event_data.remote_address_ipv4,
+    // laddr_length,
+    // raddr_length
+    //);
+
+    // DBG2
+    let z = serde_json::to_string(&net_event_data).unwrap();
+    println!("{}", z);
+    println!("-----END-----");
+    
+    //println!("{}", serde_json::to_string(&net_event_data).unwrap());
     
 }
 
+/*
 fn parse_kern_net_event(schema: &Schema, record: &EventRecord) {
     let parser = Parser::create(record, schema);
     // let event_timestamp = filetime_to_datetime(schema.timestamp());
@@ -314,6 +317,7 @@ fn parse_kern_net_event(schema: &Schema, record: &EventRecord) {
             .unwrap_or_default(),*/
     );
 }
+*/
 
 fn parse_etw_dns_event(schema: &Schema, record: &EventRecord) {
     let parser = Parser::create(record, schema);
@@ -348,17 +352,18 @@ fn parse_etw_dns_event(schema: &Schema, record: &EventRecord) {
 fn main() {
     env_logger::init(); // this is optional. This makes the (rare) error logs of ferrisetw to be printed to stderr
 
+    
     let _dns_provider = Provider::by_guid("1c95126e-7eea-49a9-a3fe-a378b03ddb4d") // Microsoft-Windows-DNS-Client
         .add_callback(dns_etw_callback)
         .trace_flags(TraceFlags::EVENT_ENABLE_PROPERTY_PROCESS_START_KEY)
         .build();
-
-
+    
+    /*
     let _kern_net_provider = Provider::by_guid("7dd42a49-5329-4832-8dfd-43d979153a88") //Microsoft-Windows-Kernel-Network
         .add_callback(kern_net_callback)
         .trace_flags(TraceFlags::EVENT_ENABLE_PROPERTY_PROCESS_START_KEY)
         .build();
-
+    */
 
     let ms_tcpip_provider = Provider::by_guid("2F07E2EE-15DB-40F1-90EF-9D7BA282188A") // Microsoft-Windows-TCPIP
         .add_callback(ms_tcpip_etw_callback)
