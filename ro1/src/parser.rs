@@ -179,10 +179,10 @@ pub fn proc_hm_to_pi(process: &HashMap<String, Variant>, classname: &str) -> Res
 }
 
 
-pub fn pi_to_er(pi:&rtevents::ProcessInfo) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
+pub fn pi_to_er(pi:&rtevents::ProcessInfo, procsrc: &str) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
     let ret  = cache::GenericEventRecord {
         ts: pi.creation_date,
-        src: "PROC".to_string(),
+        src: procsrc.to_string(),
         host: pi.hostname.clone(),
         context1: pi.name.clone(),
         context1_attrib: "ProcessName".to_string(),
