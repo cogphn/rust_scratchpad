@@ -1,19 +1,17 @@
 use serde::Deserialize;
 use serde::Serialize;
-//use windows::Win32::System::Wmi::MI_Datetime;
 use wmi::{COMLibrary, WMIConnection, Variant};
-
 use std::collections::HashMap;
-//use std::time::Duration;
 use futures::StreamExt;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-//use chrono::{DateTime, NaiveDateTime, Utc};
 use chrono::{NaiveDateTime};
 use std::sync::OnceLock;
 
 use super::parser;
 use super::cache;
+
+mod etwevents;
 
 #[derive(Deserialize, Debug)]
 #[serde(rename = "Win32_Process")] 
@@ -114,7 +112,24 @@ pub fn get_process_list() -> wmi::WMIResult<()> {
     Ok(())
 }
 */
+pub async fn write_proclist_to_cache() -> Result<(), Box<dyn std::error::Error>> {    
+    let process_list = get_process_list()?;
+    let process_list = match get_process_list() {
+        Ok(pl) => pl,
+        Err(e) => {
+            return Err(e);
+        }
+    };
 
+    for pi in &process_list {
+        let er = parser::pi_to_er(pi, "PROCLIST");
+        if let Ok(er) = er {
+            let _ = cache::insert_event(&er).await;
+        }
+    }
+    
+    Ok(())
+}
 
 pub fn get_process_list() -> Result<Vec<ProcessInfo>, Box<dyn std::error::Error>> {
     let com_lib = COMLibrary::new()?;
@@ -139,11 +154,8 @@ pub fn get_process_list() -> Result<Vec<ProcessInfo>, Box<dyn std::error::Error>
                 session_id: p.session_id.unwrap_or_default()
             }
         }).collect();
-    // TODO: write to cache 
     
     return Ok(process_infos);
-
-    //Ok(())
 }
 
 pub async fn process_observer(running: Arc<AtomicBool>) -> Result<(), Box<dyn std::error::Error>> {
@@ -156,7 +168,7 @@ pub async fn process_observer(running: Arc<AtomicBool>) -> Result<(), Box<dyn st
     let mut process_start_stream = wmi_con.async_raw_notification(new_proc_query)?;
 
     loop {
-        if running.load(Ordering::SeqCst) == false { // TODO: Fix shutdown delay
+        if running.load(Ordering::SeqCst) == false { // TODO: Fix shutdown delay - seems to only register after another proc event is captured 
             println!("[*] Stopping process observer ...");
             break;
         }
@@ -168,7 +180,7 @@ pub async fn process_observer(running: Arc<AtomicBool>) -> Result<(), Box<dyn st
                         let _newproc = match parser::proc_hm_to_pi(&process, "Win32_ProcessStartTrace") {
                             Ok(pi) => {
                                 println!("{}",serde_json::to_string(&pi).unwrap());    
-                                let parsed_procinfo = parser::pi_to_er(&pi);
+                                let parsed_procinfo = parser::pi_to_er(&pi, "PROC");
                                 if let Ok(er) = parsed_procinfo {
                                     let _ = cache::get_runtime().spawn(async move {
                                         cache::insert_event(&er).await.ok();
@@ -220,4 +232,39 @@ pub fn get_process_details(process_id: u32) -> Result<HashMap<String, Variant>, 
     } else {
         Err("Process not found".into())
     }
+}
+
+
+fn start_netevent_observer() -> Result<ferrisetw::UserTrace, ferrisetw::trace::TraceError> {
+    return etwevents::start_tcp_event_observer();
+}
+
+fn stop_netevent_observer(trace: ferrisetw::UserTrace) -> Result<(), ferrisetw::trace::TraceError> {
+    return etwevents::stop_tcp_event_observer(trace);
+}
+
+pub fn netevent_observer(running: Arc<AtomicBool>) {
+    let trace_ret = etwevents::start_tcp_event_observer();
+
+    if let Err(e) = &trace_ret {
+        eprintln!("[!] Error starting TCPIP trace: {:?}", e);
+        return;
+    }
+    let trace = trace_ret.unwrap();
+
+    while running.load(Ordering::SeqCst) == true {
+        std::thread::sleep(std::time::Duration::new(5, 0));
+    } 
+
+    let ret = match etwevents::stop_tcp_event_observer(trace) {
+        Ok(v) => {
+            println!("[*] Trace stopped successfully");
+            return;
+        }
+        Err (traceerr) => {
+            eprintln!("[!] Error stopping trace: {:?}", traceerr);
+            return;
+        }
+    };
+
 }
