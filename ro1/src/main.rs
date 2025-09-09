@@ -6,6 +6,7 @@ use windows::{
 //use std::{rc, sync::atomic::{AtomicBool, Ordering}};
 use std::{sync::atomic::{AtomicBool, Ordering}};
 use std::sync::Arc;
+use std::thread;
 pub mod rtevents;
 pub mod wels;
 
@@ -22,6 +23,7 @@ async fn main() -> Result<()> {
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
     let rc_rtevents = running.clone();
+    let rc_etwevents = running.clone();
     cache::initialize_cache("cache.db").await.expect(" [!] failed to initialize cache");
 
     ctrlc::set_handler(move || {
@@ -48,6 +50,10 @@ async fn main() -> Result<()> {
         sub_handles.push(h);
     }
     //println!("[*] listening for events. Press Ctrl+C to stop.");
+    
+    let netconns_handle = thread::spawn(||{
+        rtevents::netevent_observer(rc_etwevents);
+    });
 
     let _ = rtevents::process_observer(rc_rtevents).await;
 
@@ -59,6 +65,7 @@ async fn main() -> Result<()> {
         for h in sub_handles {
             let _ = EvtClose(h?);
         }
+        let _ = netconns_handle.join();
     }
 
     println!("[.] Done.");
