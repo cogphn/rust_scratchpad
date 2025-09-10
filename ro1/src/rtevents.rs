@@ -268,3 +268,38 @@ pub fn netevent_observer(running: Arc<AtomicBool>) {
     };
 
 }
+
+/*
+fn start_dns_observer() -> Result<ferrisetw::UserTrace, ferrisetw::trace::TraceError> {
+    return etwevents::start_dns_event_observer();
+}
+
+fn stop_dns_observer(trace: ferrisetw::UserTrace) -> Result<(), ferrisetw::trace::TraceError> {
+    return etwevents::stop_dns_event_observer(trace);
+}
+    */
+
+pub fn dns_event_observer(running: Arc<AtomicBool>) {
+    let trace_ret = etwevents::start_dns_event_observer();
+
+    if let Err(e) = &trace_ret {
+        eprintln!("[!] Error starting DNS trace: {:?}", e);
+        return;
+    }
+    let trace = trace_ret.unwrap();
+
+    while running.load(Ordering::SeqCst) == true {
+        std::thread::sleep(std::time::Duration::new(5, 0));
+    } 
+
+    let ret = match etwevents::stop_dns_event_observer(trace) {
+        Ok(v) => {
+            println!("[*] Trace stopped successfully");
+            return;
+        }
+        Err (traceerr) => {
+            eprintln!("[!] Error stopping trace: {:?}", traceerr);
+            return;
+        }
+    };   
+}
