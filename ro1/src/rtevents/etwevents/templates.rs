@@ -210,7 +210,6 @@ pub struct TcpipAoacFailFastArgs_V1 {
 }
 
 
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GeneralNetEvent {
     pub timestamp: String,
@@ -290,3 +289,87 @@ pub struct GeneralNetEvent {
     pub local_address_ipv4: String,
     pub remote_address_ipv4: String
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DnsServerForInterface {
+    pub timestamp: String,
+    pub event_id: u16,
+    pub event_desc: String, 
+
+    pub interface: Option<String>,
+    pub total_server_count: Option<u32>,
+    pub index: Option<u32>,
+    pub dynamic_address: Option<u8>,
+    pub address_length: Option<u32>,
+    pub address_ipv4: String 
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Dns3006 {
+    pub timestamp: String,
+    pub event_id: u16,
+    pub event_desc: String,
+
+    pub query_name: Option<String>,
+    pub query_type: Option<u32>,
+    pub query_options: Option<u64>,
+    pub server_list: Option<String>,
+    pub is_network_query: Option<u32>, 
+    pub network_query_index: Option<u32>,
+    pub interface_index: Option<u32>,
+    pub is_async_query: Option<u32>
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Dns3008 {
+    pub timestamp: String,
+    pub event_id: u16,
+    pub event_desc: String,
+
+    pub query_name: Option<String>,
+    pub query_type: Option<u32>,
+    pub query_options: Option<u64>,
+    pub query_status: Option<u32>,
+    pub query_results: Option<String>    
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Dns3013 {
+    pub timestamp: String,
+    pub event_id: u16,
+    pub event_desc: String,
+
+    pub query_name: Option<String>,
+    pub query_status: Option<u32>,
+
+    pub query_results: Option<String>
+
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Dns3018 {
+    pub timestamp: String,
+    pub event_id: u16,
+    pub event_desc: String,
+
+    pub query_name : Option<String>,
+    pub query_type : Option<u32>,
+    pub query_options : Option<u64>,
+    pub status: Option<u32>,
+    pub query_results: Option<String>
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Dns3020 {
+    pub timestamp: String,
+    pub event_id: u16,
+    pub event_desc: String,
+    
+    pub query_name : Option<String>,
+    pub network_index: Option<u32>,
+    pub interface_index: Option<u32>,
+    pub status: Option<u32>,
+    pub query_results: Option<String>
+}
+
+
