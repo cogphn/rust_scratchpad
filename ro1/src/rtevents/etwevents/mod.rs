@@ -46,13 +46,6 @@ fn ms_tcpip_etw_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
 fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
     let parser = Parser::create(record, schema);
     
-    /*
-    Status: u32 or Vec<u8>
-
-    
-    */
-
-    //looks like I can just grab field names from the EventData portion of the event log xml
     let event_desc = match record.event_id() {        
         1002 => "TcpRequestConnect",
         1014 => "TcpAccpetListenerRouteLookupFailure",
@@ -232,10 +225,11 @@ fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
     println!("{}", z);
     println!("-----END-----");
     
-    //println!("{}", serde_json::to_string(&net_event_data).unwrap());
     
 }
 
+
+// netconns 
 pub fn start_tcp_event_observer() -> Result<UserTrace, TraceError> {
 
     let ms_tcpip_provider = Provider::by_guid("2F07E2EE-15DB-40F1-90EF-9D7BA282188A") // Microsoft-Windows-TCPIP
@@ -246,7 +240,7 @@ pub fn start_tcp_event_observer() -> Result<UserTrace, TraceError> {
 
     let trace = UserTrace::new()
         .enable(ms_tcpip_provider)
-        .start_and_process();;
+        .start_and_process();
     
     return trace;
 }
@@ -254,3 +248,170 @@ pub fn start_tcp_event_observer() -> Result<UserTrace, TraceError> {
 pub fn stop_tcp_event_observer(trace: UserTrace) -> Result<(), TraceError> {
     return trace.stop();
 }
+
+// DNS
+
+fn win_dns_etw_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
+    N_EVENTS.fetch_add(1, Ordering::SeqCst);
+
+    match schema_locator.event_schema(record) {
+        Err(err) => {
+            println!("Unable to get the ETW schema for a TCPIP event: {:?}", err);
+        }
+
+        Ok(schema) => {
+            parse_dns_event(&schema, record);
+        }
+    }
+}
+
+fn parse_dns_event(schema: &Schema, record: &EventRecord) {
+    let parser = Parser::create(record, schema);
+
+
+    let event_desc = match record.event_id() {      
+        // DNS events   
+        1001 => "DnsServerForInterface",
+        3006 => "task_03006",
+        3008 => "task_03008",
+        3009 => "task_03009",
+        3016 => "task_03016",
+        3018 => "task_03018",
+        3019 => "task_03019",
+        3010 => "task_03010",
+        3011 => "task_03011",
+        3020 => "task_03020",
+        3013 => "task_03013",
+        _ => "not_tracked"
+    };
+
+    if record.event_id() == 1001 {
+
+        let mut eventdata = templates::DnsServerForInterface {
+            event_id: record.event_id(),
+            event_desc: event_desc.to_string(),
+            timestamp: record.timestamp().to_string(),
+            interface: parser.try_parse("Interface").ok(),
+            total_server_count: parser.try_parse("TotalServerCount").ok(),
+            index: parser.try_parse("Index").ok(),
+            dynamic_address: parser.try_parse("DynamicAddress").ok(),
+            address_length: parser.try_parse("AddressLength").ok(),
+            
+            address_ipv4: "".to_string(),
+        };
+
+        // TODO: parse address 
+        
+        let event_str = serde_json::to_string(&eventdata).unwrap();
+        println!("{}", event_str);
+
+
+    } else if record.event_id() == 3006 {
+       let mut eventdata = templates::Dns3006 {
+            event_id: record.event_id(),
+            event_desc: event_desc.to_string(),
+            timestamp: record.timestamp().to_string(),
+            query_name: parser.try_parse("QueryName").ok(),
+            query_type: parser.try_parse("QueryType").ok(),
+            query_options: parser.try_parse("QueryOptions").ok(),
+
+
+            server_list: parser.try_parse("ServerList").ok(),
+            is_network_query: parser.try_parse("IsNetworkQuery").ok(),
+            network_query_index: parser.try_parse("NetworkQueryIndex").ok(),
+            interface_index: parser.try_parse("InterfaceIndex").ok(),
+            is_async_query: parser.try_parse("IsAsyncQuery").ok(),
+            
+            
+        };
+        
+        let event_str = serde_json::to_string(&eventdata).unwrap();
+        println!("{}", event_str);
+
+    } else if record.event_id() == 3008 {
+        let mut eventdata = templates::Dns3008 {
+            event_id: record.event_id(),
+            event_desc: event_desc.to_string(),
+            timestamp: record.timestamp().to_string(),
+            query_name: parser.try_parse("QueryName").ok(),
+            query_type: parser.try_parse("QueryType").ok(),
+            query_options: parser.try_parse("QueryOptions").ok(),
+            
+            query_results: parser.try_parse("QueryResults").ok(),
+            query_status: parser.try_parse("QueryStatus").ok(),
+        };
+        
+        let event_str = serde_json::to_string(&eventdata).unwrap();
+        println!("{}", event_str);
+    } else if record.event_id() == 3013 {
+        let mut eventdata =  templates::Dns3013 {
+            event_id: record.event_id(),
+            event_desc: event_desc.to_string(),
+            timestamp: record.timestamp().to_string(),
+
+            query_name: parser.try_parse("QueryName").ok(),
+            query_status: parser.try_parse("QueryStatus").ok(),
+            query_results: parser.try_parse("QueryResults").ok(),
+            
+        };
+        
+        let event_str = serde_json::to_string(&eventdata).unwrap();
+        println!("{}", event_str);
+        
+    } else if record.event_id() == 3018 {
+        let mut eventdata = templates::Dns3018 {
+            event_id: record.event_id(),
+            event_desc: event_desc.to_string(),
+            timestamp: record.timestamp().to_string(),
+
+            query_name: parser.try_parse("QueryName").ok(),
+            query_type: parser.try_parse("QueryType").ok(),
+            query_options: parser.try_parse("QueryOptions").ok(),
+
+            status: parser.try_parse("Status").ok(),
+            query_results: parser.try_parse("QueryResults").ok(),
+
+        };
+        
+        let event_str = serde_json::to_string(&eventdata).unwrap();
+        println!("{}", event_str);
+    } else if record.event_id() == 3020 {
+        let mut eventdata = templates::Dns3020 {
+            event_id: record.event_id(),
+            event_desc: event_desc.to_string(),
+            timestamp: record.timestamp().to_string(),
+
+            query_name: parser.try_parse("QueryName").ok(),
+            network_index: parser.try_parse("NetworkIndex").ok(),
+            interface_index: parser.try_parse("InterfaceIndex").ok(),
+            status: parser.try_parse("Status").ok(),
+            query_results: parser.try_parse("QueryResults").ok(),
+        };
+        
+        let event_str = serde_json::to_string(&eventdata).unwrap();
+        println!("{}", event_str);
+    } else {
+        return;
+    }
+
+}
+
+
+pub fn start_dns_event_observer() -> Result<UserTrace, TraceError> {
+
+    let win_dns_provider = Provider::by_guid("1c95126e-7eea-49a9-a3fe-a378b03ddb4d") // Microsoft-Windows-DNS-Client
+        .add_callback(win_dns_etw_callback)
+        .trace_flags(TraceFlags::EVENT_ENABLE_PROPERTY_PROCESS_START_KEY)
+        .build();
+
+    let trace = UserTrace::new()
+        .enable(win_dns_provider)
+        .start_and_process();
+
+    return trace;
+}
+
+pub fn stop_dns_event_observer(trace: UserTrace) -> Result<(), TraceError> {
+    return trace.stop();
+}
+
