@@ -209,7 +209,7 @@ fn parse_etw_event(schema: &Schema, record: &EventRecord) {
             query_results
         );
     } else {
-        println!("[*] i'm not tracking that...");
+        println!("[*] i'm not tracking {}...", record.event_id());
     }
 
 }
