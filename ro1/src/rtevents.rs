@@ -11,7 +11,7 @@ use std::sync::OnceLock;
 use super::parser;
 use super::cache;
 
-mod etwevents;
+pub mod etwevents;
 
 #[derive(Deserialize, Debug)]
 #[serde(rename = "Win32_Process")] 
@@ -302,4 +302,32 @@ pub fn dns_event_observer(running: Arc<AtomicBool>) {
             return;
         }
     };   
+}
+
+
+pub fn etw_observer(running: Arc<AtomicBool>) {
+    //start_etw_providers
+
+    let trace_ret = etwevents::start_etw_providers();
+
+    if let Err(e) = &trace_ret {
+        eprintln!("[!] Error starting trace: {:?}", e);
+        return;
+    }
+    let trace = trace_ret.unwrap();
+
+    while running.load(Ordering::SeqCst) == true {
+        std::thread::sleep(std::time::Duration::new(5, 0));
+    } 
+
+    let ret = match etwevents::stop_etw_providers(trace) {
+        Ok(v) => {
+            println!("[*] Trace stopped successfully");
+            return;
+        }
+        Err (traceerr) => {
+            eprintln!("[!] Error stopping trace: {:?}", traceerr);
+            return;
+        }
+    };
 }
