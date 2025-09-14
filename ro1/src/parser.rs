@@ -5,6 +5,7 @@ use super::rtevents;
 use wmi::{Variant};
 use std::collections::HashMap;
 
+use rtevents::etwevents::templates;
 
 
 pub fn convert_wmi_datetime_to_datetime(wmi_date: &str) -> Result<NaiveDateTime, ParseError> { 
@@ -211,7 +212,7 @@ pub fn wel_json_to_er(event_str: &str) -> Result<cache::GenericEventRecord, Box<
         rawevent: event_str.to_string()
     };
 
-    let event_json = serde_json::from_str::<serde_json::Value>(event_str).unwrap();    
+    let event_json = serde_json::from_str::<serde_json::Value>(event_str).unwrap();
     let system_json_array = &event_json["Event"]["#c"][0]["System"]["#c"];
     let system_json_array = system_json_array.as_array();
     /*
@@ -270,4 +271,36 @@ pub fn wel_json_to_er(event_str: &str) -> Result<cache::GenericEventRecord, Box<
     }
     Ok(ret)
 
+}
+
+
+pub fn netevent_to_er(netevent: templates::GeneralNetEvent) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
+
+    let mut ret  = cache::GenericEventRecord {
+        ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
+        //ts: NaiveDateTime::parse_from_str(&netevent.ts_str, "%Y-%m-%d %H:%M:%S")?,
+        src: "ETW_MSWINTCP".to_string(),
+        host: "N/A".to_string(),
+        context1: "".to_string(),
+        context1_attrib: "event_id".to_string(),
+        context2: "N/A".to_string(),
+        context2_attrib: "provider_name".to_string(),
+        context3: "N/A".to_string(),
+        context3_attrib: "remote_address_ipv4".to_string(),
+        rawevent: serde_json::to_string(&netevent).unwrap()
+    };
+
+
+    let ts_utc = netevent.ts_str.split(" +").collect::<Vec<_>>()[0]; // TODO: rethink
+    ret.ts = match NaiveDateTime::parse_from_str(ts_utc, "%Y-%m-%d %H:%M:%S%.f"){
+        Ok(v) => v,
+        Err(_) => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?
+    };
+
+    ret.host = rtevents::get_hostname(); //I'm not sure why I can't get this from the tracing event itself
+    ret.context1 = netevent.event_id.to_string();
+    ret.context2 = netevent.provider_name;
+    ret.context3 = netevent.remote_address_ipv4;
+
+    Ok(ret)
 }
