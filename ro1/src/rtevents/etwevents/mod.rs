@@ -13,7 +13,10 @@ use ferrisetw::provider::EventFilter;
 
 static N_EVENTS: AtomicU32 = AtomicU32::new(0);
 
-mod templates;
+pub mod templates;
+use super::cache;
+use super::parser;
+
 use ferrisetw::trace::TraceError;
 
 
@@ -43,86 +46,101 @@ fn ms_tcpip_etw_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
     }
 }
 
+
+
 fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
     let parser = Parser::create(record, schema);
     
     let event_desc = match record.event_id() {        
         1002 => "TcpRequestConnect",
-        1014 => "TcpAccpetListenerRouteLookupFailure",
-        1015 => "TcpAcceptListenerInsertionFailure",
-        1016 => "TcpAcceptListenerRejected",
+        //1014 => "TcpAccpetListenerRouteLookupFailure",
+        //1015 => "TcpAcceptListenerInsertionFailure",
+        //1016 => "TcpAcceptListenerRejected",
+        /*
         1017 => "TcpAcceptListenerComplete",
-        1018 => "TcpConnectTcbFailedAf",
-        1019 => "TcpConnectTcbFailedCompartment",
-        1020 => "TcpConnectTcbFailedInspect",
-        1021 => "TcpConnectTcbFailedRoute",
-        1022 => "TcpConnectTcbSkipRateLimit",
-        1023 => "TcpConnectTcbPassRateLimit",
-        1024 => "TcpConnectTcbCheckRateLimit",
+        
+        //1018 => "TcpConnectTcbFailedAf",
+        //1019 => "TcpConnectTcbFailedCompartment",
+        //1020 => "TcpConnectTcbFailedInspect",
+        //1021 => "TcpConnectTcbFailedRoute",
+        //1022 => "TcpConnectTcbSkipRateLimit",
+        //1023 => "TcpConnectTcbPassRateLimit",
+        //1024 => "TcpConnectTcbCheckRateLimit",
+        
         1026 => "TcpRateLimitPathRelease",
         1027 => "TcpConnectTcbRateLimitRelease",
-        1028 => "TcpRateLimitPathCancel",
-        1029 => "TcpConnectTcbCancel",
-        1030 => "TcpConnectTcbFailInsertion",
-        1031 => "TcpConnectTcbProceeding",
+        
+        //1028 => "TcpRateLimitPathCancel",
+        //1029 => "TcpConnectTcbCancel",
+        //1030 => "TcpConnectTcbFailInsertion",
+        //1031 => "TcpConnectTcbProceeding",
+        
         1032 => "TcpConnectTcbRateLimitCancel",
         1033 => "TcpConnectTcbComplete",
-        1034 => "TcpConnectTcbFailure",
-        1035 => "TcpConnectTcbFailInspectConnectComplete",
-        1036 => "TcpConnectTcbFailSessionState",
-        1037 => "TcpConnectTcbFailDontFragment",
+        
+        //1034 => "TcpConnectTcbFailure",
+        //1035 => "TcpConnectTcbFailInspectConnectComplete",
+        //1036 => "TcpConnectTcbFailSessionState",
+        //1037 => "TcpConnectTcbFailDontFragment",
+        
         1038 => "TcpCloseTcbRequest",
         1039 => "TcpAbortTcbRequest",
         1040 => "TcpAbortTcbComplete",
         1043 => "TcpDisconnectTcbComplete",
-        1044 => "TcpShutdownTcb",
+        
+        //1044 => "TcpShutdownTcb", // TODO: Review
+        
         1045 => "TcpConnectTcbTimeout",
         1046 => "TcpDisconnectTcbRtoTimeout",
         1047 => "TcpDisconnectTcbKeepaliveTimeout",
         1048 => "TcpDisconnectTcbTimeout",
         1049 => "TcpConnectTcbEstatsFailed",
-        1050 => "TcpConnectFailedPortAcquire",
-        1092 => "TcpAutoTuningBegin",
-        1093 => "TcpAutoTuningEnd",
-        1094 => "TcpAutoTuningFailedRttEstimation",
-        1095 => "TcpAutoTuningFailedBandwidthEstimation",
-        1096 => "TcpAutoTuningFailedAllocationFailure",
-        1097 => "TcpAutoTuningChangeRcvBufferSize",
-        1182 => "TcpInitiateSynRstValidation",
-        1183 => "TcpConnectTcbFailedRcvdRst",
-        1184 => "TcpConnectionTerminatedRcvdRst",
-        1185 => "TcpConnectionTerminatedRcvdSyn",
-        1186 => "TcpConnectRestransmit",
-        1187 => "TcpDataTransferRestransmit",
-        1200 => "TcpDisconnectTcbZeroWindowTimeout",
-        1201 => "TcpDisconnectTcbFinWait2Timeout",
-        1293 => "Ndkpi_Read",
-        1294 => "Ndkpi_Write",
+        
+        //1050 => "TcpConnectFailedPortAcquire",
+        //1092 => "TcpAutoTuningBegin",
+        //1093 => "TcpAutoTuningEnd",
+        //1094 => "TcpAutoTuningFailedRttEstimation",
+        //1095 => "TcpAutoTuningFailedBandwidthEstimation",
+        //1096 => "TcpAutoTuningFailedAllocationFailure",
+        //1097 => "TcpAutoTuningChangeRcvBufferSize",
+        //1182 => "TcpInitiateSynRstValidation",
+        //1183 => "TcpConnectTcbFailedRcvdRst",
+        
+        //1184 => "TcpConnectionTerminatedRcvdRst",
+        //1185 => "TcpConnectionTerminatedRcvdSyn",
+        
+        //1186 => "TcpConnectRestransmit",
+        //1187 => "TcpDataTransferRestransmit",
+        //1200 => "TcpDisconnectTcbZeroWindowTimeout",
+        //1201 => "TcpDisconnectTcbFinWait2Timeout",
+        //1293 => "Ndkpi_Read",
+        //1294 => "Ndkpi_Write",
         1300 => "TcpConnectionRundown",
-        1357 => "TcpipAoacFailFast",
-        1364 => "TcpInsertConnectionTuple",
-        1365 => "TcpRemoveConnectionTuple",
-        1374 => "RemoteEndpoint",
-        1375 => "RemoteEndpoint1375",
-        1382 => "TcpInspectConnectWithNameResContext",
-        1466 => "RemoteEndpoint1466",
-        1467 => "RemoteEndpoint1467",
-        1468 => "TcpSystemAbortTcb",
-        1477 => "TcpConnectionSummary1477",
+        //1357 => "TcpipAoacFailFast",
+        
+        //1364 => "TcpInsertConnectionTuple",
+        //1365 => "TcpRemoveConnectionTuple",
+        //1374 => "RemoteEndpoint",
+        //1375 => "RemoteEndpoint1375",
+        //1382 => "TcpInspectConnectWithNameResContext",
+        //1466 => "RemoteEndpoint1466",
+        //1467 => "RemoteEndpoint1467",
+        //1468 => "TcpSystemAbortTcb",
+        //1477 => "TcpConnectionSummary1477",
+        */
         _ => "Other",
     };
 
     if event_desc == "Other"{ // TODO: fix filters
         return;
     }
-    println!("----START----");
 
-    //println!("{:?}", record.timestamp());
-
+    
     let mut net_event_data = templates::GeneralNetEvent {
-        timestamp: record.timestamp().to_string(),
+        ts_str: record.timestamp().to_string(),
         event_id: record.event_id(),
         event_description: event_desc.to_string(),
+        provider_name: schema.provider_name(),
         tcb: parser.try_parse("Tcb").ok(), 
         local_address_length: parser.try_parse("LocalAddressLength").ok(),
         local_address: parser.try_parse("LocalAddress").ok(),
@@ -198,6 +216,7 @@ fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
         remote_address_ipv4: "".to_string()
     };
 
+
     let mut local_address_str = String::new();
     let laddr_length = net_event_data.local_address_length.unwrap_or_default() as usize;
     let mut remote_address_str = String::new();
@@ -221,9 +240,14 @@ fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
     }
     
     // DBG2
-    let z = serde_json::to_string(&net_event_data).unwrap();
-    println!("{}", z);
-    println!("-----END-----");
+    let nestr = serde_json::to_string(&net_event_data).unwrap();
+    let er = parser::netevent_to_er(net_event_data).unwrap();
+
+    cache::get_runtime().spawn(async move {
+        cache::insert_event(&er).await.ok();
+    });
+
+    println!("{}", nestr);
     
     
 }
@@ -285,12 +309,14 @@ fn parse_dns_event(schema: &Schema, record: &EventRecord) {
         _ => "not_tracked"
     };
 
+    //println!(" [DBG]: 🎉 DNS HAPPENED!!! 🎉 {:?}", record.event_id());
+
     if record.event_id() == 1001 {
 
         let mut eventdata = templates::DnsServerForInterface {
             event_id: record.event_id(),
             event_desc: event_desc.to_string(),
-            timestamp: record.timestamp().to_string(),
+            timestamp: record.timestamp().to_string(), //todo: rename
             interface: parser.try_parse("Interface").ok(),
             total_server_count: parser.try_parse("TotalServerCount").ok(),
             index: parser.try_parse("Index").ok(),
@@ -415,3 +441,28 @@ pub fn stop_dns_event_observer(trace: UserTrace) -> Result<(), TraceError> {
     return trace.stop();
 }
 
+
+pub fn start_etw_providers() -> Result<UserTrace, TraceError> { 
+    let win_dns_provider = Provider::by_guid("1c95126e-7eea-49a9-a3fe-a378b03ddb4d") // Microsoft-Windows-DNS-Client
+        .add_callback(win_dns_etw_callback)
+        .trace_flags(TraceFlags::EVENT_ENABLE_PROPERTY_PROCESS_START_KEY)
+        .build();
+
+    let ms_tcpip_provider = Provider::by_guid("2F07E2EE-15DB-40F1-90EF-9D7BA282188A") // Microsoft-Windows-TCPIP
+        .add_callback(ms_tcpip_etw_callback)
+        .trace_flags(TraceFlags::EVENT_ENABLE_PROPERTY_PROCESS_START_KEY)
+        //.filter(EventFilter::new(0,0,0)) 
+        .build();
+
+    let trace = UserTrace::new()
+        .enable(win_dns_provider)
+        .enable(ms_tcpip_provider)
+        .start_and_process();
+
+    trace
+}
+
+
+pub fn stop_etw_providers(trace: UserTrace) ->  Result<(), TraceError> {
+    return trace.stop();
+}
