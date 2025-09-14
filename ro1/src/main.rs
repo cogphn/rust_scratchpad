@@ -24,6 +24,8 @@ async fn main() -> Result<()> {
     let r = running.clone();
     let rc_rtevents = running.clone();
     let rc_etwevents = running.clone();
+    let rc_dnsevents = running.clone();
+
     cache::initialize_cache("cache.db").await.expect(" [!] failed to initialize cache");
 
     ctrlc::set_handler(move || {
@@ -51,9 +53,17 @@ async fn main() -> Result<()> {
     }
     //println!("[*] listening for events. Press Ctrl+C to stop.");
     
-    let netconns_handle = thread::spawn(||{
-        rtevents::netevent_observer(rc_etwevents);
+    //let netconns_handle = thread::spawn(||{
+    //    rtevents::netevent_observer(rc_etwevents);
+    //});
+
+    
+    let etw_handle = thread::spawn(||{
+        rtevents::etw_observer(rc_etwevents);
+        //rtevents::netevent_observer(rc_etwevents);
+        //rtevents::dns_event_observer(rc_dnsevents);
     });
+    
 
     let _ = rtevents::process_observer(rc_rtevents).await;
 
@@ -65,7 +75,7 @@ async fn main() -> Result<()> {
         for h in sub_handles {
             let _ = EvtClose(h?);
         }
-        let _ = netconns_handle.join();
+        let _ = etw_handle.join();
     }
 
     println!("[.] Done.");
