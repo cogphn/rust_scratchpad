@@ -126,8 +126,9 @@ fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
         //1466 => "RemoteEndpoint1466",
         //1467 => "RemoteEndpoint1467",
         //1468 => "TcpSystemAbortTcb",
-        //1477 => "TcpConnectionSummary1477",
         */
+        1477 => "TcpConnectionSummary1477",
+        
         _ => "Other",
     };
 
@@ -309,116 +310,85 @@ fn parse_dns_event(schema: &Schema, record: &EventRecord) {
         _ => "not_tracked"
     };
 
-    //println!(" [DBG]: 🎉 DNS HAPPENED!!! 🎉 {:?}", record.event_id());
+    let mut dns_event = templates::GenericDnsEvent {
+        event_id: record.event_id(),
+        event_desc: event_desc.to_string(),
+        ts_str: record.timestamp().to_string(), 
+        provider_name: schema.provider_name(),
+        location: parser.try_parse("Location").ok(),
+        context: parser.try_parse("Context").ok(),
+        interface: parser.try_parse("Interface").ok(),
+        total_server_count: parser.try_parse("TotalServerCount").ok(),
+        index: parser.try_parse("Index").ok(),
+        dynamic_address: parser.try_parse("DynamicAddress").ok(),
+        address_length: parser.try_parse("AddressLength").ok(),
+        address: parser.try_parse("Address").ok(),
+        error_code: parser.try_parse("ErrorCode").ok(),
+        dns_suffix: parser.try_parse("DnsSuffix").ok(),
+        ad_suffix: parser.try_parse("AdSuffix").ok(),
+        query_name: parser.try_parse("QueryName").ok(),
+        dns_address_length: parser.try_parse("DnsAddressLength").ok(),
+        dns_address: parser.try_parse("DnsAddress").ok(),
+        key_name: parser.try_parse("KeyName").ok(),
+        dns_sec_validation_required: parser.try_parse("DnsSecValidationRequired").ok(),
+        dns_query_over_ip_sec: parser.try_parse("DnsQueryOverIPSec").ok(),
+        dns_encryption: parser.try_parse("DnsEncryption").ok(),
+        direct_access_server_list: parser.try_parse("DirectAccessServerList").ok(),
+        remote_ipsec: parser.try_parse("RemoteIPSEC").ok(),
+        remote_encryption: parser.try_parse("RemoteEncryption").ok(),
+        proxy_type: parser.try_parse("ProxyType").ok(),
+        proxy_name: parser.try_parse("ProxyName").ok(),
+        rule_name: parser.try_parse("RuleName").ok(),
+        response_question: parser.try_parse("ResponseQuestion").ok(),
+        generic_server_list: parser.try_parse("GenericServerList").ok(),
+        idn_config: parser.try_parse("IdnConfig").ok(),
+        query_type: parser.try_parse("QueryType").ok(),
+        query_options: parser.try_parse("QueryOptions").ok(),
+        status: parser.try_parse("Status").ok(),
+        server_list: parser.try_parse("ServerList").ok(),
+        is_network_query: parser.try_parse("IsNetworkQuery").ok(),
+        network_query_index: parser.try_parse("NetworkQueryIndex").ok(),
+        interface_index: parser.try_parse("InterfaceIndex").ok(),
+        is_async_query: parser.try_parse("IsAsyncQuery").ok(),
+        query_status: parser.try_parse("QueryStatus").ok(),
+        query_results: parser.try_parse("QueryResults").ok(),
+        is_parallel_network_query: parser.try_parse("IsParallelNetworkQuery").ok(),
+        network_index: parser.try_parse("NetworkIndex").ok(),
+        interface_count: parser.try_parse("InterfaceCount").ok(),
+        adapter_name: parser.try_parse("AdapterName").ok(),
+        local_address: parser.try_parse("LocalAddress").ok(),
+        dns_server_address: parser.try_parse("DNSServerAddress").ok(),
+        dns_server_ip_address: parser.try_parse("DnsServerIpAddress").ok(),
+        response_status: parser.try_parse("ResponseStatus").ok(),
+        host_name: parser.try_parse("HostName").ok(),
+        adapter_suffix_name: parser.try_parse("AdapterSuffixName").ok(),
+        dns_server_list: parser.try_parse("DnsServerList").ok(),
+        sent_update_server: parser.try_parse("SentUpdateServer").ok(),
+        ipaddress: parser.try_parse("Ipaddress").ok(),
+        warning_code: parser.try_parse("WarningCode").ok(),
+        next_state: parser.try_parse("NextState").ok(),
+        update_reason_code: parser.try_parse("UpdateReasonCode").ok(),
+        source_address: parser.try_parse("SourceAddress").ok(),
+        source_port: parser.try_parse("SourcePort").ok(),
+        destination_address: parser.try_parse("DestinationAddress").ok(),
+        destination_port: parser.try_parse("DestinationPort").ok(),
+        protocol: parser.try_parse("Protocol").ok(),
+        reference_context: parser.try_parse("ReferenceContext").ok(),
+        if_guid: parser.try_parse("IfGuid").ok(),
+        if_index: parser.try_parse("IfIndex").ok(),
+        if_luid: parser.try_parse("IfLuid").ok()
+    };
 
-    if record.event_id() == 1001 {
+    let dnsstr = serde_json::to_string(&dns_event).unwrap();
+    
+    //let er = parser::dnsevent_to_er(dns_event).unwrap();
 
-        let mut eventdata = templates::DnsServerForInterface {
-            event_id: record.event_id(),
-            event_desc: event_desc.to_string(),
-            timestamp: record.timestamp().to_string(), //todo: rename
-            interface: parser.try_parse("Interface").ok(),
-            total_server_count: parser.try_parse("TotalServerCount").ok(),
-            index: parser.try_parse("Index").ok(),
-            dynamic_address: parser.try_parse("DynamicAddress").ok(),
-            address_length: parser.try_parse("AddressLength").ok(),
-            
-            address_ipv4: "".to_string(),
-        };
+    //cache::get_runtime().spawn(async move {
+    //    cache::insert_event(&er).await.ok();
+    //});
 
-        // TODO: parse address 
-        
-        let event_str = serde_json::to_string(&eventdata).unwrap();
-        println!("{}", event_str);
+    println!("{}", dnsstr);
 
-
-    } else if record.event_id() == 3006 {
-       let mut eventdata = templates::Dns3006 {
-            event_id: record.event_id(),
-            event_desc: event_desc.to_string(),
-            timestamp: record.timestamp().to_string(),
-            query_name: parser.try_parse("QueryName").ok(),
-            query_type: parser.try_parse("QueryType").ok(),
-            query_options: parser.try_parse("QueryOptions").ok(),
-
-
-            server_list: parser.try_parse("ServerList").ok(),
-            is_network_query: parser.try_parse("IsNetworkQuery").ok(),
-            network_query_index: parser.try_parse("NetworkQueryIndex").ok(),
-            interface_index: parser.try_parse("InterfaceIndex").ok(),
-            is_async_query: parser.try_parse("IsAsyncQuery").ok(),
-            
-            
-        };
-        
-        let event_str = serde_json::to_string(&eventdata).unwrap();
-        println!("{}", event_str);
-
-    } else if record.event_id() == 3008 {
-        let mut eventdata = templates::Dns3008 {
-            event_id: record.event_id(),
-            event_desc: event_desc.to_string(),
-            timestamp: record.timestamp().to_string(),
-            query_name: parser.try_parse("QueryName").ok(),
-            query_type: parser.try_parse("QueryType").ok(),
-            query_options: parser.try_parse("QueryOptions").ok(),
-            
-            query_results: parser.try_parse("QueryResults").ok(),
-            query_status: parser.try_parse("QueryStatus").ok(),
-        };
-        
-        let event_str = serde_json::to_string(&eventdata).unwrap();
-        println!("{}", event_str);
-    } else if record.event_id() == 3013 {
-        let mut eventdata =  templates::Dns3013 {
-            event_id: record.event_id(),
-            event_desc: event_desc.to_string(),
-            timestamp: record.timestamp().to_string(),
-
-            query_name: parser.try_parse("QueryName").ok(),
-            query_status: parser.try_parse("QueryStatus").ok(),
-            query_results: parser.try_parse("QueryResults").ok(),
-            
-        };
-        
-        let event_str = serde_json::to_string(&eventdata).unwrap();
-        println!("{}", event_str);
-        
-    } else if record.event_id() == 3018 {
-        let mut eventdata = templates::Dns3018 {
-            event_id: record.event_id(),
-            event_desc: event_desc.to_string(),
-            timestamp: record.timestamp().to_string(),
-
-            query_name: parser.try_parse("QueryName").ok(),
-            query_type: parser.try_parse("QueryType").ok(),
-            query_options: parser.try_parse("QueryOptions").ok(),
-
-            status: parser.try_parse("Status").ok(),
-            query_results: parser.try_parse("QueryResults").ok(),
-
-        };
-        
-        let event_str = serde_json::to_string(&eventdata).unwrap();
-        println!("{}", event_str);
-    } else if record.event_id() == 3020 {
-        let mut eventdata = templates::Dns3020 {
-            event_id: record.event_id(),
-            event_desc: event_desc.to_string(),
-            timestamp: record.timestamp().to_string(),
-
-            query_name: parser.try_parse("QueryName").ok(),
-            network_index: parser.try_parse("NetworkIndex").ok(),
-            interface_index: parser.try_parse("InterfaceIndex").ok(),
-            status: parser.try_parse("Status").ok(),
-            query_results: parser.try_parse("QueryResults").ok(),
-        };
-        
-        let event_str = serde_json::to_string(&eventdata).unwrap();
-        println!("{}", event_str);
-    } else {
-        return;
-    }
 
 }
 
@@ -443,12 +413,18 @@ pub fn stop_dns_event_observer(trace: UserTrace) -> Result<(), TraceError> {
 
 
 pub fn start_etw_providers() -> Result<UserTrace, TraceError> { 
+
+    let dns_eid_filter = EventFilter::ByEventIds(vec![1001, 3006, 3008, 3009, 3016, 3018, 3019, 3010, 3011, 3020, 3013]);
+    let tcp_eid_filter = EventFilter::ByEventIds(vec![1002]);
+    
     let win_dns_provider = Provider::by_guid("1c95126e-7eea-49a9-a3fe-a378b03ddb4d") // Microsoft-Windows-DNS-Client
+        .add_filter(dns_eid_filter)
         .add_callback(win_dns_etw_callback)
         .trace_flags(TraceFlags::EVENT_ENABLE_PROPERTY_PROCESS_START_KEY)
         .build();
 
     let ms_tcpip_provider = Provider::by_guid("2F07E2EE-15DB-40F1-90EF-9D7BA282188A") // Microsoft-Windows-TCPIP
+        .add_filter(tcp_eid_filter)
         .add_callback(ms_tcpip_etw_callback)
         .trace_flags(TraceFlags::EVENT_ENABLE_PROPERTY_PROCESS_START_KEY)
         //.filter(EventFilter::new(0,0,0)) 
