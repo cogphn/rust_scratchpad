@@ -88,9 +88,10 @@ pub struct GeneralNetEvent {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DnsServerForInterface {
-    pub timestamp: String,
+    pub ts_str: String,
     pub event_id: u16,
     pub event_desc: String, 
+    pub provider_name: String,
 
     pub interface: Option<String>,
     pub total_server_count: Option<u32>,
@@ -102,9 +103,10 @@ pub struct DnsServerForInterface {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Dns3006 {
-    pub timestamp: String,
+    pub ts_str: String,
     pub event_id: u16,
     pub event_desc: String,
+    pub provider_name: String,
 
     pub query_name: Option<String>,
     pub query_type: Option<u32>,
@@ -118,9 +120,10 @@ pub struct Dns3006 {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Dns3008 {
-    pub timestamp: String,
+    pub ts_str: String,
     pub event_id: u16,
     pub event_desc: String,
+    pub provider_name: String,
 
     pub query_name: Option<String>,
     pub query_type: Option<u32>,
@@ -131,9 +134,10 @@ pub struct Dns3008 {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Dns3013 {
-    pub timestamp: String,
+    pub ts_str: String,
     pub event_id: u16,
     pub event_desc: String,
+    pub provider_name: String,
 
     pub query_name: Option<String>,
     pub query_status: Option<u32>,
@@ -147,6 +151,7 @@ pub struct Dns3018 {
     pub timestamp: String,
     pub event_id: u16,
     pub event_desc: String,
+    pub provider_name: String,
 
     pub query_name : Option<String>,
     pub query_type : Option<u32>,
@@ -160,6 +165,7 @@ pub struct Dns3020 {
     pub timestamp: String,
     pub event_id: u16,
     pub event_desc: String,
+    pub provider_name: String,
     
     pub query_name : Option<String>,
     pub network_index: Option<u32>,
@@ -168,4 +174,73 @@ pub struct Dns3020 {
     pub query_results: Option<String>
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GenericDnsEvent {
+	pub ts_str: String,
+	pub event_id: u16,
+	pub event_desc: String,
+    pub provider_name: String,
+	pub location: Option<u32>,
+	pub context: Option<u32>,
+	pub interface: Option<String>,
+	pub total_server_count: Option<u32>,
+	pub index: Option<u32>,
+	pub dynamic_address: Option<u8>,
+	pub address_length: Option<u32>,
+	pub address: Option<Vec<u8>>,
+	pub error_code: Option<u32>,
+	pub dns_suffix: Option<String>,
+	pub ad_suffix: Option<String>,
+	pub query_name: Option<String>,
+	pub dns_address_length: Option<u32>,
+	pub dns_address: Option<Vec<u8>>,
+	pub key_name: Option<String>,
+	pub dns_sec_validation_required: Option<u32>,
+	pub dns_query_over_ip_sec: Option<u32>,
+	pub dns_encryption: Option<u32>,
+	pub direct_access_server_list: Option<String>,
+	pub remote_ipsec: Option<u32>,
+	pub remote_encryption: Option<u32>,
+	pub proxy_type: Option<u32>,
+	pub proxy_name: Option<String>,
+	pub rule_name: Option<String>,
+	pub response_question: Option<String>,
+	pub generic_server_list: Option<String>,
+	pub idn_config: Option<u32>,
+	pub query_type: Option<u32>,
+	pub query_options: Option<u64>,
+	pub status: Option<u32>,
+	pub server_list: Option<String>,
+	pub is_network_query: Option<u32>,
+	pub network_query_index: Option<u32>,
+	pub interface_index: Option<u32>,
+	pub is_async_query: Option<u32>,
+	pub query_status: Option<u32>,
+	pub query_results: Option<String>,
+	pub is_parallel_network_query: Option<u32>,
+	pub network_index: Option<u32>,
+	pub interface_count: Option<u32>,
+	pub adapter_name: Option<String>,
+	pub local_address: Option<String>,
+	pub dns_server_address: Option<String>,
+	pub dns_server_ip_address: Option<String>,
+	pub response_status: Option<u32>,
+	pub host_name: Option<String>,
+	pub adapter_suffix_name: Option<String>,
+	pub dns_server_list: Option<String>,
+	pub sent_update_server: Option<String>,
+	pub ipaddress: Option<String>,
+	pub warning_code: Option<u32>,
+	pub next_state: Option<u8>,
+	pub update_reason_code: Option<u32>,
+	pub source_address: Option<u32>,
+	pub source_port: Option<u32>,
+	pub destination_address: Option<u32>,
+	pub destination_port: Option<u32>,
+	pub protocol: Option<u32>,
+	pub reference_context: Option<u32>,
+	pub if_guid: Option<Vec<u8>>,
+	pub if_index: Option<u32>,
+	pub if_luid: Option<u64>,
+} 
 
