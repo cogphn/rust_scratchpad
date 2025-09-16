@@ -234,7 +234,7 @@ pub fn get_process_details(process_id: u32) -> Result<HashMap<String, Variant>, 
     }
 }
 
-
+/*
 fn start_netevent_observer() -> Result<ferrisetw::UserTrace, ferrisetw::trace::TraceError> {
     return etwevents::start_tcp_event_observer();
 }
@@ -242,7 +242,7 @@ fn start_netevent_observer() -> Result<ferrisetw::UserTrace, ferrisetw::trace::T
 fn stop_netevent_observer(trace: ferrisetw::UserTrace) -> Result<(), ferrisetw::trace::TraceError> {
     return etwevents::stop_tcp_event_observer(trace);
 }
-
+*/
 pub fn netevent_observer(running: Arc<AtomicBool>) {
     let trace_ret = etwevents::start_tcp_event_observer();
 
@@ -292,8 +292,8 @@ pub fn dns_event_observer(running: Arc<AtomicBool>) {
         std::thread::sleep(std::time::Duration::new(5, 0));
     } 
 
-    let ret = match etwevents::stop_dns_event_observer(trace) {
-        Ok(v) => {
+    let _ = match etwevents::stop_dns_event_observer(trace) {
+        Ok(_) => {
             println!("[*] Trace stopped successfully");
             return;
         }
@@ -320,8 +320,8 @@ pub fn etw_observer(running: Arc<AtomicBool>) {
         std::thread::sleep(std::time::Duration::new(5, 0));
     } 
 
-    let ret = match etwevents::stop_etw_providers(trace) {
-        Ok(v) => {
+    let _ = match etwevents::stop_etw_providers(trace) {
+        Ok(_) => {
             println!("[*] Trace stopped successfully");
             return;
         }
