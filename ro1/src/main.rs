@@ -24,7 +24,7 @@ async fn main() -> Result<()> {
     let r = running.clone();
     let rc_rtevents = running.clone();
     let rc_etwevents = running.clone();
-    let rc_dnsevents = running.clone();
+    //let rc_dnsevents = running.clone();
 
     cache::initialize_cache("cache.db").await.expect(" [!] failed to initialize cache");
 
