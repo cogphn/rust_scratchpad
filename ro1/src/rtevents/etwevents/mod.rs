@@ -56,9 +56,9 @@ fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
         //1014 => "TcpAccpetListenerRouteLookupFailure",
         //1015 => "TcpAcceptListenerInsertionFailure",
         //1016 => "TcpAcceptListenerRejected",
-        /*
-        1017 => "TcpAcceptListenerComplete",
         
+        1017 => "TcpAcceptListenerComplete",
+        /*
         //1018 => "TcpConnectTcbFailedAf",
         //1019 => "TcpConnectTcbFailedCompartment",
         //1020 => "TcpConnectTcbFailedInspect",
@@ -73,11 +73,12 @@ fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
         //1028 => "TcpRateLimitPathCancel",
         //1029 => "TcpConnectTcbCancel",
         //1030 => "TcpConnectTcbFailInsertion",
+        */
         //1031 => "TcpConnectTcbProceeding",
         
-        1032 => "TcpConnectTcbRateLimitCancel",
+        //1032 => "TcpConnectTcbRateLimitCancel",
         1033 => "TcpConnectTcbComplete",
-        
+        /*
         //1034 => "TcpConnectTcbFailure",
         //1035 => "TcpConnectTcbFailInspectConnectComplete",
         //1036 => "TcpConnectTcbFailSessionState",
@@ -380,12 +381,11 @@ fn parse_dns_event(schema: &Schema, record: &EventRecord) {
     };
 
     let dnsstr = serde_json::to_string(&dns_event).unwrap();
-    
-    //let er = parser::dnsevent_to_er(dns_event).unwrap();
+    let er = parser::dnsevent_to_er(dns_event).unwrap();
 
-    //cache::get_runtime().spawn(async move {
-    //    cache::insert_event(&er).await.ok();
-    //});
+    cache::get_runtime().spawn(async move {
+        cache::insert_event(&er).await.ok();
+    });
 
     println!("{}", dnsstr);
 
