@@ -113,7 +113,6 @@ pub fn get_process_list() -> wmi::WMIResult<()> {
 }
 */
 pub async fn write_proclist_to_cache() -> Result<(), Box<dyn std::error::Error>> {    
-    let process_list = get_process_list()?;
     let process_list = match get_process_list() {
         Ok(pl) => pl,
         Err(e) => {
