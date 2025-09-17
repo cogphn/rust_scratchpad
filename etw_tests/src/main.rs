@@ -5,6 +5,75 @@ use ferrisetw::trace::*;
 use ferrisetw::EventRecord;
 use std::time::Duration;
 
+
+use std::sync::atomic::AtomicU32;
+use ferrisetw::schema::Schema;
+use std::sync::atomic::Ordering;
+static N_EVENTS: AtomicU32 = AtomicU32::new(0);
+
+
+fn winreg_etw_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
+    N_EVENTS.fetch_add(1, Ordering::SeqCst);
+
+    match schema_locator.event_schema(record) {
+        Err(err) => {
+            println!("Unable to get the ETW schema for a Registry event: {:?}", err);
+        }
+
+        Ok(schema) => {
+            parse_reg_event(&schema, record);
+        }
+    }
+}
+
+
+fn parse_reg_event(schema: &Schema, record: &EventRecord) {
+    let parser = Parser::create(record, schema);
+
+
+    
+    let event_desc = match record.event_id() {  
+        1001 => "DnsServerForInterface",
+        3006 => "task_03006",
+        3008 => "task_03008",
+        3009 => "task_03009",
+        3016 => "task_03016",
+        3018 => "task_03018",
+        3019 => "task_03019",
+        3010 => "task_03010",
+        3011 => "task_03011",
+        3020 => "task_03020",
+        3013 => "task_03013",
+        _ => "not_tracked"
+    };
+    
+
+    let ts_str = record.timestamp().to_string();
+    //let schema_ts = schema.timestamp().to_string();
+    let event_id = record.event_id();
+    let event_description = event_desc.to_string();
+    let provider_name = schema.provider_name();
+
+    let keyname: Option<String> = parser.try_parse("KeyName").ok();
+
+    let keyname_str = match keyname {
+        Some(s) => s,
+        None => "*NA".to_string()
+    };
+
+    println!("{}    {}, {:?}, {:?}, {}",
+        ts_str,
+        event_id,
+        event_description,
+        provider_name,
+        keyname_str
+    );
+
+}
+
+
+
+
 fn main() {
     env_logger::init(); // this is optional. This makes the (rare) error logs of ferrisetw to be printed to stderr
 
@@ -75,6 +144,8 @@ fn main() {
                         Ok(keyname) => println!("KeyName: {}", keyname),
                         Err(err) => println!("Error: {:?} getting KeyName", err),
                     };
+
+
                 //}
             }
             Err(err) => println!("Error {:?}", err),
@@ -87,10 +158,17 @@ fn main() {
         .add_callback(process_start_callback)
         .build();
 
+    //let reg_provider = Provider::kernel(&kernel_providers::REGISTRY_PROVIDER)
+    //    .add_callback(regisevent_callback)
+    //    .build();
+
     let reg_provider = Provider::kernel(&kernel_providers::REGISTRY_PROVIDER)
-        .add_callback(regisevent_callback)
+        .add_callback(winreg_etw_callback)
         .build();
 
+    
+
+    
     let image_load_provider = Provider::kernel(&kernel_providers::IMAGE_LOAD_PROVIDER)
         .add_callback(image_load_callback)
         .build();
