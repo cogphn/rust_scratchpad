@@ -5,181 +5,98 @@ use ferrisetw::trace::*;
 use ferrisetw::EventRecord;
 use std::time::Duration;
 
-
-use std::sync::atomic::AtomicU32;
-use ferrisetw::schema::Schema;
-use std::sync::atomic::Ordering;
-static N_EVENTS: AtomicU32 = AtomicU32::new(0);
-
-
-fn winreg_etw_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
-    N_EVENTS.fetch_add(1, Ordering::SeqCst);
-
-    match schema_locator.event_schema(record) {
-        Err(err) => {
-            println!("Unable to get the ETW schema for a Registry event: {:?}", err);
-        }
-
-        Ok(schema) => {
-            parse_reg_event(&schema, record);
-        }
-    }
-}
-
-
-fn parse_reg_event(schema: &Schema, record: &EventRecord) {
-    let parser = Parser::create(record, schema);
-
-
-    
-    let event_desc = match record.event_id() {  
-        1001 => "DnsServerForInterface",
-        3006 => "task_03006",
-        3008 => "task_03008",
-        3009 => "task_03009",
-        3016 => "task_03016",
-        3018 => "task_03018",
-        3019 => "task_03019",
-        3010 => "task_03010",
-        3011 => "task_03011",
-        3020 => "task_03020",
-        3013 => "task_03013",
-        _ => "not_tracked"
-    };
-    
-
-    let ts_str = record.timestamp().to_string();
-    //let schema_ts = schema.timestamp().to_string();
-    let event_id = record.event_id();
-    let event_description = event_desc.to_string();
-    let provider_name = schema.provider_name();
-
-    let keyname: Option<String> = parser.try_parse("KeyName").ok();
-
-    let keyname_str = match keyname {
-        Some(s) => s,
-        None => "*NA".to_string()
-    };
-
-    println!("{}    {}, {:?}, {:?}, {}",
-        ts_str,
-        event_id,
-        event_description,
-        provider_name,
-        keyname_str
-    );
-
-}
-
-
-
-
 fn main() {
     env_logger::init(); // this is optional. This makes the (rare) error logs of ferrisetw to be printed to stderr
 
-    let image_load_callback =
+    let process_callback =
         |record: &EventRecord, schema_locator: &SchemaLocator| match schema_locator
             .event_schema(record)
         {
             Ok(schema) => {
-                let opcode = record.opcode();
-                if opcode == 10 {
+                let event_id = record.event_id();
+                if event_id == 2 {
                     let name = schema.provider_name();
-                    println!("ProviderName: {}", name);
+                    println!("Name: {}", name);
                     let parser = Parser::create(record, &schema);
-                    // Fully Qualified Syntax for Disambiguation
-                    match parser.try_parse::<String>("FileName") {
-                        Ok(filename) => println!("FileName: {}", filename),
-                        Err(err) => println!("Error: {:?} getting Filename", err),
-                    };
-                }
-            }
-            Err(err) => println!("Error {:?}", err),
-        };
-
-    let process_start_callback = 
-        |record: &EventRecord, schema_locator: &SchemaLocator| match schema_locator
-            .event_schema(record)
-        {
-            Ok(schema) => {
-                let opcode = record.opcode();
-                //if opcode == 10 { // ??
-                    let name = schema.provider_name();
-                    println!("ProviderName: {}", name);
-                    println!("Opcode: {}", opcode);
-                    println!("eventid {}",record.event_id() );
-                    let parser = Parser::create(record, &schema);
-                    // Fully Qualified Syntax for Disambiguation
-                    
-                    match parser.try_parse::<String>("ImageName") {
-                        Ok(iname) => println!("ImageName: {}", iname),
-                        Err(err) => println!("Error: {:?} getting Image Name", err),
-                    };
-
-                //} else {
-                //    println!(" [?] the opcode is not 10..... not sure what that means");
-                //}
-            }
-            Err(err) => println!("Error {:?}", err),
-        };
-
-    let regisevent_callback =
-        |record: &EventRecord, schema_locator: &SchemaLocator| match schema_locator
-            .event_schema(record)
-        {
-            Ok(schema) => {
-                let opcode = record.opcode();
-                //if opcode == 11 {
-                    let name = schema.provider_name();
-                    println!("ProviderName: {},  Opcode: {},    Event ID: {}", 
-                        name, opcode, record.event_id()
+                    let process_id: u32 = parser.try_parse("ProcessID").unwrap();
+                    let exit_code: u32 = parser.try_parse("ExitCode").unwrap();
+                    let image_name: String = parser.try_parse("ImageName").unwrap();
+                    println!(
+                        "PID: {}, ExitCode: {}, ImageName: {}",
+                        process_id, exit_code, image_name
                     );
-                    // not sure why the eventid is always 0
-                    
-                    println!("event_name: {}", record.event_name() ); //blank :/
+                }
 
-                    let parser = Parser::create(record, &schema);
-
-                    match parser.try_parse::<String>("KeyName") {
-                        Ok(keyname) => println!("KeyName: {}", keyname),
-                        Err(err) => println!("Error: {:?} getting KeyName", err),
-                    };
-
-
-                //}
             }
             Err(err) => println!("Error {:?}", err),
         };
 
     
-    //let provider = Provider::kernel(&kernel_providers::IMAGE_LOAD_PROVIDER)
-    let proc_provider = Provider::kernel(&kernel_providers::PROCESS_PROVIDER)
-        //.add_callback(image_load_callback)
-        .add_callback(process_start_callback)
+    let reg_callback =
+        |record: &EventRecord, schema_locator: &SchemaLocator| match schema_locator
+            .event_schema(record)
+        {
+            Ok(schema) => {
+                let event_id = record.event_id();
+                let name = schema.provider_name();
+                
+
+                if event_id == 1 {
+                    println!("[{}] Name: {}", event_id, name);    
+                    let parser = Parser::create(record, &schema);
+                    let timestamp = record.timestamp();
+                    let status: u32 = parser.try_parse("Status").unwrap();
+                    let disposition: u32 = parser.try_parse("Disposition").unwrap();
+                    let base_name: String = parser.try_parse("BaseName").unwrap();
+                    let relative_name: String = parser.try_parse("RelativeName").unwrap();
+                    println!(
+                        "status: {}, disposition: {}, BaseName: {}, RelativeName: {}",
+                        status, disposition, base_name, relative_name
+                    );
+                } else if event_id == 5 {
+                        println!("[{}] Name: {}", event_id, name);
+                        let parser = Parser::create(record, &schema);
+                        let timestamp = record.timestamp();
+                        let status: u32 = parser.try_parse("Status").unwrap();
+                        let dtype: u32 = parser.try_parse("Type").unwrap();
+                        let key_name: String = parser.try_parse("KeyName").unwrap();
+                        let value_name: String = parser.try_parse("ValueName").unwrap();
+                        println!(
+                            "status: {}, Type: {}, KeyName: {}, ValueName: {}",
+                            status, dtype, key_name, value_name
+                        );
+                }
+                
+            }
+            Err(err) => println!("Error {:?}", err),
+        };
+
+
+    let process_provider = Provider::by_guid(0x22fb2cd6_0e7b_422b_a0c7_2fad1fd0e716) // Microsoft-Windows-Kernel-Process
+        .add_callback(process_callback)
         .build();
 
-    //let reg_provider = Provider::kernel(&kernel_providers::REGISTRY_PROVIDER)
-    //    .add_callback(regisevent_callback)
-    //    .build();
-
-    let reg_provider = Provider::kernel(&kernel_providers::REGISTRY_PROVIDER)
-        .add_callback(winreg_etw_callback)
+    let reg_provider = Provider::by_guid(0x70eb4f03_c1de_4f73_a051_33d13d5413bd)
+        .add_callback(reg_callback)
         .build();
 
-    
-
-    
-    let image_load_provider = Provider::kernel(&kernel_providers::IMAGE_LOAD_PROVIDER)
-        .add_callback(image_load_callback)
-        .build();
-
-    let kernel_trace = KernelTrace::new()
-        .named(String::from("MyKernelProvider"))
+    let (_user_trace, handle) = UserTrace::new()
+        .named(String::from("trace101"))
+        .enable(process_provider)
         .enable(reg_provider)
-        //.stop_if_exist(true)
-        .start_and_process()
+        .start()
         .unwrap();
 
+    // This example uses `process_from_handle` rather than the more convient `start_and_process`, because why not.
+    std::thread::spawn(move || {
+        let status = UserTrace::process_from_handle(handle);
+        // This code will be executed when the trace stops. Examples:
+        // * when it is dropped
+        // * when it is manually stopped (either by user_trace.stop, or by the `logman stop -ets MyTrace` command)
+        println!("Trace ended with status {:?}", status);
+    });
+
     std::thread::sleep(Duration::new(20, 0));
-    kernel_trace.stop().unwrap(); // This is not required, as it will automatically be stopped on Drop
+
+    // user_trace will be dropped (and stopped) here
 }
