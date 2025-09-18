@@ -244,3 +244,45 @@ pub struct GenericDnsEvent {
 	pub if_luid: Option<u64>,
 } 
 
+
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GenericRegEvent {
+	pub ts_str: String,
+	pub event_id: u16,
+	pub event_desc: String,
+	pub provider_name: String,
+	pub base_object: Option<Vec<u8>>,
+	pub key_object: Option<Vec<u8>>,
+	pub status: Option<u32>,
+	pub disposition: Option<u32>,
+	pub base_name: Option<String>,
+	pub relative_name: Option<String>,
+	pub key_name: Option<String>,
+	pub info_class: Option<u32>,
+	pub data_size: Option<u32>,
+	pub captured_data_size: Option<u16>,
+	pub captured_data: Option<Vec<u8>>,
+	pub etype: Option<u32>,
+	pub value_name: Option<String>,
+	pub previous_data_type: Option<u32>,
+	pub previous_data_size: Option<u32>,
+	pub previous_data_captured_size: Option<u16>,
+	pub previous_data: Option<Vec<u8>>,
+	pub index: Option<u32>,
+	pub entry_count: Option<u32>,
+	pub hive_file_path: Option<String>,
+	pub file_size: Option<u32>,
+	pub total_entry_size: Option<u32>,
+	pub bytes_recovered: Option<u32>,
+	pub status_code: Option<Vec<u8>>,
+	pub hive_mount_point: Option<String>,
+	pub flush_flags: Option<Vec<u8>>,
+	pub bytes_gathered: Option<u32>,
+	pub writes_issued: Option<u32>,
+	pub bytes_written: Option<u32>,
+	pub source_file: Option<String>,
+	pub flags: Option<Vec<u8>>,
+	pub source_key_path: Option<String>
+    
+} 
