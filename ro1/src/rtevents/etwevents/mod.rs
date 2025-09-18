@@ -47,6 +47,20 @@ fn ms_tcpip_etw_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
 }
 
 
+fn ms_kernreg_etw_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
+    N_EVENTS.fetch_add(1, Ordering::SeqCst);
+
+    match schema_locator.event_schema(record) {
+        Err(err) => {
+            println!("Unable to get the ETW schema for a Registry event: {:?}", err);
+        }
+
+        Ok(schema) => {
+            parse_etw_reg_event(&schema, record);
+        }
+    }
+}
+
 
 fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
     let parser = Parser::create(record, schema);
@@ -282,7 +296,7 @@ fn win_dns_etw_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
 
     match schema_locator.event_schema(record) {
         Err(err) => {
-            println!("Unable to get the ETW schema for a TCPIP event: {:?}", err);
+            println!("Unable to get the ETW schema for a DNS event: {:?}", err);
         }
 
         Ok(schema) => {
@@ -393,6 +407,77 @@ fn parse_dns_event(schema: &Schema, record: &EventRecord) {
 }
 
 
+fn parse_etw_reg_event(schema: &Schema, record: &EventRecord) {
+    let parser = Parser::create(record, schema);
+    
+    let event_desc = match record.event_id() {      
+        // Reg events   
+        1 => "task_0CreateKey",
+        2 => "task_0OpenKey",
+        3 => "task_0DeleteKey",
+        4 => "task_0QueryKey",
+        5 => "task_0SetValueKey",
+        6 => "task_0DeleteValueKey",
+        7 => "task_0QueryValueKey",
+        _ => "not_tracked"
+    };
+
+    let event_id = record.event_id();
+    let provider_name = schema.provider_name();
+    let timestamp = record.timestamp();
+
+    let mut reg_event = templates::GenericRegEvent {
+		event_id: record.event_id(),
+		event_desc: event_desc.to_string(),
+		ts_str: record.timestamp().to_string(),
+		provider_name: schema.provider_name(),
+
+        key_object: parser.try_parse("KeyObject").ok(),
+		status: parser.try_parse("Status").ok(),
+		etype: parser.try_parse("Type").ok(),
+		data_size: parser.try_parse("DataSize").ok(),
+		key_name: parser.try_parse("KeyName").ok(),
+		value_name: parser.try_parse("ValueName").ok(),
+		captured_data_size: parser.try_parse("CapturedDataSize").ok(),
+		captured_data: parser.try_parse("CapturedData").ok(),
+		previous_data_type: parser.try_parse("PreviousDataType").ok(),
+		previous_data_size: parser.try_parse("PreviousDataSize").ok(),
+		previous_data_captured_size: parser.try_parse("PreviousDataCapturedSize").ok(),
+		previous_data: parser.try_parse("PreviousData").ok(),
+		base_object: parser.try_parse("BaseObject").ok(),
+		disposition: parser.try_parse("Disposition").ok(),
+		base_name: parser.try_parse("BaseName").ok(),
+		relative_name: parser.try_parse("RelativeName").ok(),
+        bytes_recovered:   parser.try_parse("BytesReceived").ok(),
+        entry_count: parser.try_parse("EntryCount").ok(),
+        file_size: parser.try_parse("FileSize").ok(),
+        flush_flags: parser.try_parse("FlushFlags").ok(),
+        hive_file_path: parser.try_parse("HiveFilePath").ok(),
+        hive_mount_point: parser.try_parse("HiveMountPoint").ok(),
+        index: parser.try_parse("Index").ok(),
+        bytes_gathered: parser.try_parse("BytesGathered").ok(),
+        bytes_written: parser.try_parse("BytesWritten").ok(),
+        flags: parser.try_parse("Flags").ok(),
+        info_class: parser.try_parse("InfoClass").ok(),
+        source_file: parser.try_parse("SourceFile").ok(),
+        source_key_path: parser.try_parse("SourceKeyPath").ok(),
+        status_code: parser.try_parse("StatusCode").ok(),
+        total_entry_size: parser.try_parse("TotalEntrySize").ok(),
+        writes_issued: parser.try_parse("WritesIssued").ok()
+    };
+
+    let regstr = serde_json::to_string(&reg_event).unwrap();
+    
+    println!("{}", regstr);
+
+    //println!("------------------------------------------------------------");
+    //println!("Registry Event: {}    {}  {}", event_id, provider_name, timestamp);
+    //println!("------------------------------------------------------------");
+
+
+}
+
+
 pub fn start_dns_event_observer() -> Result<UserTrace, TraceError> {
 
     let win_dns_provider = Provider::by_guid("1c95126e-7eea-49a9-a3fe-a378b03ddb4d") // Microsoft-Windows-DNS-Client
@@ -416,6 +501,7 @@ pub fn start_etw_providers() -> Result<UserTrace, TraceError> {
 
     let dns_eid_filter = EventFilter::ByEventIds(vec![1001, 3006, 3008, 3009, 3016, 3018, 3019, 3010, 3011, 3020, 3013]);
     let tcp_eid_filter = EventFilter::ByEventIds(vec![1002]);
+    let reg_eid_filter = EventFilter::ByEventIds(vec![1,3,5,6]);
     
     let win_dns_provider = Provider::by_guid("1c95126e-7eea-49a9-a3fe-a378b03ddb4d") // Microsoft-Windows-DNS-Client
         .add_filter(dns_eid_filter)
@@ -430,9 +516,16 @@ pub fn start_etw_providers() -> Result<UserTrace, TraceError> {
         //.filter(EventFilter::new(0,0,0)) 
         .build();
 
+    let ms_reg_provider = Provider::by_guid(0x70eb4f03_c1de_4f73_a051_33d13d5413bd) // Microsoft-Windows-Kernel-Registry
+        .add_filter(reg_eid_filter)
+        .add_callback(ms_kernreg_etw_callback)
+        //.trace_flags(TraceFlags::EVENT_ENABLE_PROPERTY_PROCESS_START_KEY)
+        .build();
+
     let trace = UserTrace::new()
         .enable(win_dns_provider)
-        .enable(ms_tcpip_provider)
+        //.enable(ms_tcpip_provider)
+        .enable(ms_reg_provider)
         .start_and_process();
 
     trace
