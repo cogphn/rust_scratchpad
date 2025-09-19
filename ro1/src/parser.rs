@@ -336,5 +336,37 @@ pub fn dnsevent_to_er(dnsevent: templates::GenericDnsEvent) ->  Result<cache::Ge
     };
     Ok(ret)
 
+}
+
+
+pub fn regevent_to_er(regevent: templates::GenericRegEvent) ->  Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
+
+    let mut ret = cache::GenericEventRecord {
+        ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
+        src: "ETW_MSWINREG".to_string(),
+        host: "*NA".to_string(),
+        context1: "".to_string(),
+        context1_attrib: "event_id".to_string(),
+        context2: "*NA".to_string(),
+        context2_attrib: "provider_name".to_string(),
+        context3: "*NA".to_string(),
+        context3_attrib: "relative_name".to_string(),
+        rawevent: serde_json::to_string(&regevent).unwrap()
+    };
+
+    let ts_utc = regevent.ts_str.split(" +").collect::<Vec<_>>()[0]; // TODO: rethink
+    ret.ts = match NaiveDateTime::parse_from_str(ts_utc, "%Y-%m-%d %H:%M:%S%.f"){
+        Ok(v) => v,
+        Err(_) => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?
+    };
+
+    ret.host = rtevents::get_hostname();
+    ret.context1 = regevent.event_id.to_string();
+    ret.context2 = regevent.provider_name;
+    ret.context3 = match regevent.relative_name {
+        Some(s) => s,
+        None => "*NA".to_string()
+    };
+    Ok(ret)
 
 }
