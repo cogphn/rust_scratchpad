@@ -354,8 +354,7 @@ pub fn regevent_to_er(regevent: templates::GenericRegEvent) ->  Result<cache::Ge
         rawevent: serde_json::to_string(&regevent).unwrap()
     };
 
-    let ts_utc = regevent.ts_str.split(" +").collect::<Vec<_>>()[0]; // TODO: rethink
-    ret.ts = match NaiveDateTime::parse_from_str(ts_utc, "%Y-%m-%d %H:%M:%S%.f"){
+    ret.ts = match NaiveDateTime::parse_from_str(&regevent.ts_str, "%Y-%m-%dT%H:%M:%SZ"){
         Ok(v) => v,
         Err(_) => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?
     };
