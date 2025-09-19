@@ -61,6 +61,44 @@ fn ms_kernreg_etw_callback(record: &EventRecord, schema_locator: &SchemaLocator)
     }
 }
 
+fn secaudit_etw_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
+    N_EVENTS.fetch_add(1, Ordering::SeqCst);
+
+    match schema_locator.event_schema(record) {
+        Err(err) => {
+            println!("Unable to get the ETW schema for a Security Auditing event: {:?}", err);
+        }
+
+        Ok(schema) => {
+            parse_etw_secaudit_event(&schema, record);
+        }
+    }
+}
+
+
+
+fn parse_etw_secaudit_event(schema: &Schema, record: &EventRecord) {
+    let parser = Parser::create(record, schema);
+
+
+    let event_desc = match record.event_id() {      
+        // DNS events   
+        4688 => "task_04688",
+        _ => "not_tracked"
+    };
+
+    let event_id =  record.event_id();
+    let event_desc = event_desc.to_string();
+    let ts_str =  record.timestamp().to_string(); 
+    let provider_name = schema.provider_name();
+    let new_process_name: Option<String> = parser.try_parse("NewProcessName").ok();
+    
+
+    println!("{}    {}  {}  {:?}  {:?}",
+        event_id, event_desc, ts_str, provider_name, new_process_name    
+    );
+}
+
 
 fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
     let parser = Parser::create(record, schema);
@@ -401,7 +439,7 @@ fn parse_dns_event(schema: &Schema, record: &EventRecord) {
         cache::insert_event(&er).await.ok();
     });
 
-    println!("{}", dnsstr);
+    //println!("{}", dnsstr);
 
 
 }
@@ -467,14 +505,11 @@ fn parse_etw_reg_event(schema: &Schema, record: &EventRecord) {
     };
 
     let regstr = serde_json::to_string(&reg_event).unwrap();
-    
-    println!("{}", regstr);
+    let er = parser::regevent_to_er(reg_event).unwrap();
 
-    //println!("------------------------------------------------------------");
-    //println!("Registry Event: {}    {}  {}", event_id, provider_name, timestamp);
-    //println!("------------------------------------------------------------");
-
-
+    cache::get_runtime().spawn(async move {
+        cache::insert_event(&er).await.ok();
+    });
 }
 
 
@@ -502,6 +537,7 @@ pub fn start_etw_providers() -> Result<UserTrace, TraceError> {
     let dns_eid_filter = EventFilter::ByEventIds(vec![1001, 3006, 3008, 3009, 3016, 3018, 3019, 3010, 3011, 3020, 3013]);
     let tcp_eid_filter = EventFilter::ByEventIds(vec![1002]);
     let reg_eid_filter = EventFilter::ByEventIds(vec![1,3,5,6]);
+    let secaudit_eid_filter = EventFilter::ByEventIds(vec![4688]);
     
     let win_dns_provider = Provider::by_guid("1c95126e-7eea-49a9-a3fe-a378b03ddb4d") // Microsoft-Windows-DNS-Client
         .add_filter(dns_eid_filter)
@@ -522,10 +558,17 @@ pub fn start_etw_providers() -> Result<UserTrace, TraceError> {
         //.trace_flags(TraceFlags::EVENT_ENABLE_PROPERTY_PROCESS_START_KEY)
         .build();
 
+    let win_secaudit_provider = Provider::by_guid(0x54849625_5478_4994_a5ba_3e3b0328c30d)
+        .add_filter(secaudit_eid_filter)
+        .add_callback(secaudit_etw_callback)
+        .build();
+
+
     let trace = UserTrace::new()
         .enable(win_dns_provider)
         //.enable(ms_tcpip_provider)
         .enable(ms_reg_provider)
+        //.enable(win_secaudit_provider)
         .start_and_process();
 
     trace
