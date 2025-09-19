@@ -462,12 +462,16 @@ fn parse_etw_reg_event(schema: &Schema, record: &EventRecord) {
 
     let event_id = record.event_id();
     let provider_name = schema.provider_name();
-    let timestamp = record.timestamp();
+    //let timestamp = record.timestamp();
+
+    let dtnow = chrono::Utc::now();
+    let timestamp = dtnow.to_rfc3339_opts(chrono::format::SecondsFormat::Secs, true);
 
     let mut reg_event = templates::GenericRegEvent {
 		event_id: record.event_id(),
 		event_desc: event_desc.to_string(),
-		ts_str: record.timestamp().to_string(),
+		//ts_str: record.timestamp().to_string(),
+        ts_str: timestamp,
 		provider_name: schema.provider_name(),
 
         key_object: parser.try_parse("KeyObject").ok(),
@@ -510,6 +514,8 @@ fn parse_etw_reg_event(schema: &Schema, record: &EventRecord) {
     cache::get_runtime().spawn(async move {
         cache::insert_event(&er).await.ok();
     });
+
+    //println!("{}", regstr);
 }
 
 
@@ -565,7 +571,7 @@ pub fn start_etw_providers() -> Result<UserTrace, TraceError> {
 
 
     let trace = UserTrace::new()
-        .enable(win_dns_provider)
+        //.enable(win_dns_provider)
         //.enable(ms_tcpip_provider)
         .enable(ms_reg_provider)
         //.enable(win_secaudit_provider)
