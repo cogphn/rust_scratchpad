@@ -86,12 +86,28 @@ fn main() {
                 if event_id == 26 {
                     let event_description = "DeletePath".to_string();
                     println!("[{}][{}] Name: {}, {}", timestamp, event_id, name, event_description);
+                    let parser = Parser::create(record, &schema);
+
+                    let irp: Option<Vec<u8>> = parser.try_parse("Irp").ok();
+                    let thread_id: Option<Vec<u8>> =parser.try_parse("ThreadId").ok();
+                    let file_object: Option<Vec<u8>> =parser.try_parse("FileObject").ok(); 
+                    let file_key: Option<Vec<u8>> =parser.try_parse("FileKey").ok(); 
+                    let extra_information: Option<Vec<u8>> = parser.try_parse("ExtraInformation").ok();
+                    let info_class: Option<u32> = parser.try_parse("InfoClass").ok();
+                    let file_path: Option<String> = parser.try_parse("FilePath").ok();
+                    let issuing_thread_id: Option<Vec<u8>> = parser.try_parse("IssuingThreadId").ok();
+                    
+                    println!("{:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
+                        irp, thread_id, file_object, file_key, extra_information, info_class, file_path, issuing_thread_id
+                    );
+
                 } else if event_id == 28 {
                     let event_description = "SetLinkPath".to_string();
                     println!("[{}][{}] Name: {}, {}", timestamp, event_id, name, event_description);
                     let parser = Parser::create(record, &schema);
 
                     
+
                 } else if event_id == 30 {
                     let event_description = "CreateNewFile".to_string();
                     println!("[{}][{}] Name: {}, {}", timestamp, event_id, name, event_description);
