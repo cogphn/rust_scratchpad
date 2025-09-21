@@ -24,7 +24,6 @@ async fn main() -> Result<()> {
     let r = running.clone();
     let rc_rtevents = running.clone();
     let rc_etwevents = running.clone();
-    //let rc_dnsevents = running.clone();
 
     cache::initialize_cache("cache.db").await.expect(" [!] failed to initialize cache");
 
@@ -51,17 +50,10 @@ async fn main() -> Result<()> {
         }
         sub_handles.push(h);
     }
-    //println!("[*] listening for events. Press Ctrl+C to stop.");
-    
-    //let netconns_handle = thread::spawn(||{
-    //    rtevents::netevent_observer(rc_etwevents);
-    //});
 
     
     let etw_handle = thread::spawn(||{
         rtevents::etw_observer(rc_etwevents);
-        //rtevents::netevent_observer(rc_etwevents);
-        //rtevents::dns_event_observer(rc_dnsevents);
     });
     
 
