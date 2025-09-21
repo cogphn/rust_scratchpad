@@ -61,6 +61,21 @@ fn ms_kernreg_etw_callback(record: &EventRecord, schema_locator: &SchemaLocator)
     }
 }
 
+
+fn ms_kernfile_etw_callback (record: &EventRecord, schema_locator: &SchemaLocator) {
+    N_EVENTS.fetch_add(1, Ordering::SeqCst);
+    match schema_locator.event_schema(record) {
+        Err(err) => {
+            println!("Unable to get the ETW schema for a File event: {:?}", err);
+        }
+        Ok(schema) => {
+            parse_etw_file_event(&schema, record);
+        }
+    }
+
+}
+
+/*
 fn secaudit_etw_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
     N_EVENTS.fetch_add(1, Ordering::SeqCst);
 
@@ -74,9 +89,55 @@ fn secaudit_etw_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
         }
     }
 }
+*/
+
+fn parse_etw_file_event (schema: &Schema, record: &EventRecord) {
+    let parser = Parser::create(record, schema);
+    let event_desc = match record.event_id() {      
+        // File events   
+        26 => "DeletePath",
+        28 => "SetLinkPath",
+        30 => "CreateNewFile",
+        _ => "not_tracked"
+    };
+
+    let dtnow = chrono::Utc::now();
+    let timestamp = dtnow.to_rfc3339_opts(chrono::format::SecondsFormat::Secs, true);
+
+
+    let filevent = templates::GenericFileEvent {
+        ts_str: timestamp,
+        event_id: record.event_id(),
+        event_desc: event_desc.to_string(),
+        provider_name: schema.provider_name(),
+
+        irp: parser.try_parse("Irp").ok(),
+        thread_id: parser.try_parse("ThreadId").ok(),
+        file_object: parser.try_parse("FileObject").ok(),
+        file_key: parser.try_parse("FileKey").ok(),
+        extra_information: parser.try_parse("ExtraInformation").ok(),
+        info_class: parser.try_parse("InfoClass").ok(),
+        file_path: parser.try_parse("FilePath").ok(),
+        issuing_thread_id: parser.try_parse("IssuingThreadId").ok(),
+        create_options: parser.try_parse("CreateOptions").ok(),
+        create_attributes: parser.try_parse("CreateAttributes").ok(),
+        share_access: parser.try_parse("ShareAccess").ok(),
+        file_name: parser.try_parse("FileName").ok()
+    };
+
+    //let fileeventstr = serde_json::to_string(&filevent).unwrap();    
+    let er = parser::fileevent_to_er(filevent).unwrap();
+
+    cache::get_runtime().spawn(async move {
+        cache::insert_event(&er).await.ok();
+    });
 
 
 
+
+}
+
+/*
 fn parse_etw_secaudit_event(schema: &Schema, record: &EventRecord) {
     let parser = Parser::create(record, schema);
 
@@ -98,7 +159,7 @@ fn parse_etw_secaudit_event(schema: &Schema, record: &EventRecord) {
         event_id, event_desc, ts_str, provider_name, new_process_name    
     );
 }
-
+*/
 
 fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
     let parser = Parser::create(record, schema);
@@ -185,13 +246,12 @@ fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
         _ => "Other",
     };
 
-    if event_desc == "Other"{ // TODO: fix filters
-        return;
-    }
+    let dtnow = chrono::Utc::now();
+    let timestamp = dtnow.to_rfc3339_opts(chrono::format::SecondsFormat::Secs, true);
 
     
     let mut net_event_data = templates::GeneralNetEvent {
-        ts_str: record.timestamp().to_string(),
+        ts_str: timestamp,
         event_id: record.event_id(),
         event_description: event_desc.to_string(),
         provider_name: schema.provider_name(),
@@ -294,17 +354,17 @@ fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
     }
     
     // DBG2
-    let nestr = serde_json::to_string(&net_event_data).unwrap();
+    //let netsr = serde_json::to_string(&net_event_data).unwrap();
     let er = parser::netevent_to_er(net_event_data).unwrap();
-
     cache::get_runtime().spawn(async move {
         cache::insert_event(&er).await.ok();
     });
 
-    println!("{}", nestr);
+    //println!("{}", nestr);
     
     
 }
+
 
 
 // netconns 
@@ -363,10 +423,13 @@ fn parse_dns_event(schema: &Schema, record: &EventRecord) {
         _ => "not_tracked"
     };
 
-    let mut dns_event = templates::GenericDnsEvent {
+    let dtnow = chrono::Utc::now();
+    let timestamp = dtnow.to_rfc3339_opts(chrono::format::SecondsFormat::Secs, true);
+
+    let dns_event = templates::GenericDnsEvent {
         event_id: record.event_id(),
         event_desc: event_desc.to_string(),
-        ts_str: record.timestamp().to_string(), 
+        ts_str: timestamp,
         provider_name: schema.provider_name(),
         location: parser.try_parse("Location").ok(),
         context: parser.try_parse("Context").ok(),
@@ -432,7 +495,7 @@ fn parse_dns_event(schema: &Schema, record: &EventRecord) {
         if_luid: parser.try_parse("IfLuid").ok()
     };
 
-    let dnsstr = serde_json::to_string(&dns_event).unwrap();
+    //let dnsstr = serde_json::to_string(&dns_event).unwrap();
     let er = parser::dnsevent_to_er(dns_event).unwrap();
 
     cache::get_runtime().spawn(async move {
@@ -443,6 +506,7 @@ fn parse_dns_event(schema: &Schema, record: &EventRecord) {
 
 
 }
+
 
 
 fn parse_etw_reg_event(schema: &Schema, record: &EventRecord) {
@@ -460,17 +524,12 @@ fn parse_etw_reg_event(schema: &Schema, record: &EventRecord) {
         _ => "not_tracked"
     };
 
-    let event_id = record.event_id();
-    let provider_name = schema.provider_name();
-    //let timestamp = record.timestamp();
-
     let dtnow = chrono::Utc::now();
     let timestamp = dtnow.to_rfc3339_opts(chrono::format::SecondsFormat::Secs, true);
 
-    let mut reg_event = templates::GenericRegEvent {
+    let reg_event = templates::GenericRegEvent {
 		event_id: record.event_id(),
 		event_desc: event_desc.to_string(),
-		//ts_str: record.timestamp().to_string(),
         ts_str: timestamp,
 		provider_name: schema.provider_name(),
 
@@ -508,7 +567,7 @@ fn parse_etw_reg_event(schema: &Schema, record: &EventRecord) {
         writes_issued: parser.try_parse("WritesIssued").ok()
     };
 
-    let regstr = serde_json::to_string(&reg_event).unwrap();
+    //let regstr = serde_json::to_string(&reg_event).unwrap();
     let er = parser::regevent_to_er(reg_event).unwrap();
 
     cache::get_runtime().spawn(async move {
@@ -543,8 +602,9 @@ pub fn start_etw_providers() -> Result<UserTrace, TraceError> {
     let dns_eid_filter = EventFilter::ByEventIds(vec![1001, 3006, 3008, 3009, 3016, 3018, 3019, 3010, 3011, 3020, 3013]);
     let tcp_eid_filter = EventFilter::ByEventIds(vec![1002]);
     let reg_eid_filter = EventFilter::ByEventIds(vec![1,3,5,6]);
-    let secaudit_eid_filter = EventFilter::ByEventIds(vec![4688]);
-    
+    //let secaudit_eid_filter = EventFilter::ByEventIds(vec![4688]);
+    let file_eid_filter = EventFilter::ByEventIds(vec![30, 28, 26]);
+
     let win_dns_provider = Provider::by_guid("1c95126e-7eea-49a9-a3fe-a378b03ddb4d") // Microsoft-Windows-DNS-Client
         .add_filter(dns_eid_filter)
         .add_callback(win_dns_etw_callback)
@@ -564,17 +624,24 @@ pub fn start_etw_providers() -> Result<UserTrace, TraceError> {
         //.trace_flags(TraceFlags::EVENT_ENABLE_PROPERTY_PROCESS_START_KEY)
         .build();
 
-    let win_secaudit_provider = Provider::by_guid(0x54849625_5478_4994_a5ba_3e3b0328c30d)
+    /*
+    let win_secaudit_provider = Provider::by_guid(0x54849625_5478_4994_a5ba_3e3b0328c30d) //
         .add_filter(secaudit_eid_filter)
         .add_callback(secaudit_etw_callback)
+        .build();
+    */
+    let win_file_provider = Provider::by_guid(0xedd08927_9cc4_4e65_b970_c2560fb5c289) //Microsoft-Windows-Kernel-File
+        .add_callback(ms_kernfile_etw_callback)
+        .add_filter(file_eid_filter)
         .build();
 
 
     let trace = UserTrace::new()
-        //.enable(win_dns_provider)
-        //.enable(ms_tcpip_provider)
+        .enable(win_dns_provider)
+        .enable(ms_tcpip_provider)
         .enable(ms_reg_provider)
-        //.enable(win_secaudit_provider)
+        .enable(win_file_provider)
+        //.enable(win_secaudit_provider) // not working 
         .start_and_process();
 
     trace
