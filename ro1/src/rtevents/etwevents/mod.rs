@@ -1,6 +1,5 @@
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
-//use std::time::Duration;
 
 use ferrisetw::parser::Parser;
 use ferrisetw::provider::Provider;
