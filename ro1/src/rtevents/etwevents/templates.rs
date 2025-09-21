@@ -286,3 +286,24 @@ pub struct GenericRegEvent {
 	pub source_key_path: Option<String>
     
 } 
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GenericFileEvent {
+    pub ts_str: String,
+	pub event_id: u16,
+	pub event_desc: String,
+	pub provider_name: String,
+
+    pub irp: Option<Vec<u8>>,
+    pub thread_id: Option<Vec<u8>>,
+    pub file_object: Option<Vec<u8>>,
+    pub file_key: Option<Vec<u8>>,
+    pub extra_information: Option<Vec<u8>>,
+    pub info_class: Option<u32>,
+    pub file_path: Option<String>,
+    pub issuing_thread_id: Option<Vec<u8>>,
+    pub create_options: Option<u32>,
+    pub create_attributes: Option<u32>,
+    pub share_access: Option<u32>,
+    pub file_name: Option<String>
+}
