@@ -14,6 +14,7 @@ pub mod util;
 pub mod cache;
 pub mod parser;
 
+pub mod snapshot;
 
 
 #[tokio::main]
@@ -38,6 +39,10 @@ async fn main() -> Result<()> {
         wels::ElogChannel {channel_name: "System".to_string(), query: "*".to_string()},
         wels::ElogChannel {channel_name: "Security".to_string(), query: "*".to_string()}
     ];
+    
+    println!("[*] collecting volatile data (processlist)...");
+    let _ = rtevents::write_proclist_to_cache().await;
+    
 
     println!("[*] Subscribing to Windows Event Logs...");
 
@@ -50,7 +55,6 @@ async fn main() -> Result<()> {
         }
         sub_handles.push(h);
     }
-
     
     let etw_handle = thread::spawn(||{
         rtevents::etw_observer(rc_etwevents);
