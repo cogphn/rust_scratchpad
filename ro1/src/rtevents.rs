@@ -10,31 +10,56 @@ use std::sync::OnceLock;
 
 use super::parser;
 use super::cache;
+use super::snapshot;
 
 pub mod etwevents;
 
 #[derive(Deserialize, Debug)]
 #[serde(rename = "Win32_Process")] 
 #[serde(rename_all = "PascalCase")]
-struct Process {
-    process_id: u32,
-    name: String,
-    executable_path: Option<String>,
-    command_line: Option<String>,    
-    //creation_class_name: String,
-    //caption: Option<String>,    
-    creation_date: Option<String>,    
-    //cs_creation_class_name : Option<String>,    
-    //cs_name : Option<String>,
-    description : Option<String>,    
-    //execution_state : Option<u16>,
-    handle : Option<String>,
-    handle_count : Option<u32>,    
-    parent_process_id : Option<u32>,
-    os_name : Option<String>,
-    windows_version : Option<String>,
-    session_id : Option<u32>
+pub struct Process {
+    pub process_id: u32,
+    pub name: String,
+    pub executable_path: Option<String>,
+    pub command_line: Option<String>,    
+    //pub creation_class_name: String,
+    //pub caption: Option<String>,    
+    pub creation_date: Option<String>,    
+    //pub cs_creation_class_name : Option<String>,    
+    //pub cs_name : Option<String>,
+    pub description : Option<String>,    
+    //pub execution_state : Option<u16>,
+    pub handle : Option<String>,
+    pub handle_count : Option<u32>,    
+    pub parent_process_id : Option<u32>,
+    pub os_name : Option<String>,
+    pub windows_version : Option<String>,
+    pub session_id : Option<u32>
 }
+
+#[derive(Deserialize, Debug)]
+#[serde(rename = "Win32_NetworkConnection")] 
+#[serde(rename_all = "PascalCase")]
+pub struct Netconn {
+  pub caption: Option<String>,
+  pub description: Option<String>,
+  pub install_date: Option<String>,
+  pub status: Option<String>,
+  pub access_mask: Option<u32>,
+  pub comment: Option<String>,
+  pub connection_state: Option<String>,
+  pub connection_type: Option<String>,
+  pub display_type: Option<String>,
+  pub local_name: Option<String>,
+  pub name: Option<String>,
+  pub persistent: Option<bool>,
+  pub provider_name: Option<String>,
+  pub remote_name: Option<String>,
+  pub remote_path: Option<String>,
+  pub resource_type: Option<String>,
+  pub user_name: Option<String>,
+}
+
 
 #[derive(Deserialize,Debug)]
 #[derive(Serialize)]
@@ -90,7 +115,7 @@ pub fn get_hostname() -> String {
 
 
 pub async fn write_proclist_to_cache() -> Result<(), Box<dyn std::error::Error>> {    
-    let process_list = match get_process_list() {
+    let process_list = match snapshot::get_process_list() {
         Ok(pl) => pl,
         Err(e) => {
             return Err(e);
@@ -106,7 +131,7 @@ pub async fn write_proclist_to_cache() -> Result<(), Box<dyn std::error::Error>>
     
     Ok(())
 }
-
+/*
 pub fn get_process_list() -> Result<Vec<ProcessInfo>, Box<dyn std::error::Error>> {
     let com_lib = COMLibrary::new()?;
     let wmi_con = WMIConnection::new(com_lib)?;
@@ -136,6 +161,7 @@ pub fn get_process_list() -> Result<Vec<ProcessInfo>, Box<dyn std::error::Error>
     
     return Ok(process_infos);
 }
+*/
 
 pub async fn process_observer(running: Arc<AtomicBool>) -> Result<(), Box<dyn std::error::Error>> {
     println!("[*] Monitoring for new process creation...\n");
