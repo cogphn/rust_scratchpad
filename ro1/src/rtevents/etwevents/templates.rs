@@ -1,10 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-
-
-
-
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GeneralNetEvent {
     pub ts_str: String,
