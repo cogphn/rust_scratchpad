@@ -1,5 +1,5 @@
 
-use chrono::{DateTime, Utc, NaiveDateTime, ParseError }; //, ParseError};
+use chrono::{DateTime, Utc, NaiveDateTime, ParseError, Local }; //, ParseError};
 use super::cache;
 use super::rtevents;
 use wmi::{Variant};
@@ -20,6 +20,19 @@ pub fn convert_wmi_datetime_to_datetime(wmi_date: &str) -> Result<NaiveDateTime,
     }
 }
 
+pub fn convert_wmi_datetime_to_datetime_utc(wmi_date: &str) -> Result<NaiveDateTime, ParseError> { 
+    if wmi_date.len() < 14 {
+        return NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S");
+    }
+    
+    let dt_str = &wmi_date[0..14];
+    if let Ok(naive_dt) = NaiveDateTime::parse_from_str(dt_str, "%Y%m%d%H%M%S") {
+        let dt_utc = naive_dt.and_local_timezone(Local).unwrap();
+        return Ok(dt_utc.naive_utc());
+    } else {
+        return NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S");
+    }
+}
 
 
 pub fn proc_hm_to_pi(process: &HashMap<String, Variant>, classname: &str) -> Result<rtevents::ProcessInfo, Box<dyn std::error::Error>> {
@@ -32,6 +45,7 @@ pub fn proc_hm_to_pi(process: &HashMap<String, Variant>, classname: &str) -> Res
         parent_process_id: 0,
         process_id: 0,
         creation_date: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
+        creation_date_utc: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
         executable_path:"*NA".to_string(),
         description: "*NA".to_string(),        
         handle: "*NA".to_string(),        
@@ -62,10 +76,23 @@ pub fn proc_hm_to_pi(process: &HashMap<String, Variant>, classname: &str) -> Res
             Some(Variant::String(_s)) => 0,  //TODO: fix
             _ => 0,
         };
+        let cd_str = match process.get("CreationDate") {
+            Some(Variant::String(s)) => s,
+            _ => &"1970-01-01T00:00:00".to_string()
+        };
+        newproc.creation_date = convert_wmi_datetime_to_datetime(&cd_str).unwrap();
+        newproc.creation_date_utc = convert_wmi_datetime_to_datetime_utc(&cd_str).unwrap();
+
+        /*
         newproc.creation_date = match process.get("CreationDate") {
             Some(Variant::String(s)) => convert_wmi_datetime_to_datetime(&s).unwrap(),            
             _ => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
         };
+        newproc.creation_date_utc = match process.get("CreationDate") {
+            Some(Variant::String(s)) => convert_wmi_datetime_to_datetime_utc(&s).unwrap(),
+            _ => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
+        };
+        */  
         newproc.description = match process.get("Description") {
             Some(Variant::String(s)) => s.to_string(),
             Some(Variant::Null) => "*NA".to_string(),
@@ -119,15 +146,15 @@ pub fn proc_hm_to_pi(process: &HashMap<String, Variant>, classname: &str) -> Res
             Err(_) => "N/A".to_string(),
         };
 
-        newproc.creation_date = match &process_details{
+        let cd_str = match &process_details {
             Ok(procdetails) => match procdetails.get("CreationDate") {
-                Some(Variant::String(s)) => {
-                    convert_wmi_datetime_to_datetime(s).unwrap()
-                },                
-                _ => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
+                Some(Variant::String(s)) => s,
+                _ => "1970-01-01T00:00:00"
             },
-            Err(_) => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
+            Err(_) => "1970-01-01T00:00:00"
         };
+        newproc.creation_date = convert_wmi_datetime_to_datetime(&cd_str).unwrap();
+        newproc.creation_date_utc = convert_wmi_datetime_to_datetime_utc(&cd_str).unwrap();
 
         newproc.description = match &process_details{
             Ok(details) => match details.get("Description") {
@@ -182,7 +209,7 @@ pub fn proc_hm_to_pi(process: &HashMap<String, Variant>, classname: &str) -> Res
 
 pub fn pi_to_er(pi:&rtevents::ProcessInfo, procsrc: &str) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
     let ret  = cache::GenericEventRecord {
-        ts: pi.creation_date,
+        ts: pi.creation_date_utc,
         src: procsrc.to_string(),
         host: pi.hostname.clone(),
         context1: pi.name.clone(),
@@ -291,8 +318,8 @@ pub fn netevent_to_er(netevent: templates::GeneralNetEvent) -> Result<cache::Gen
     };
 
 
-    let ts_utc = netevent.ts_str.split(" +").collect::<Vec<_>>()[0]; // TODO: rethink
-    ret.ts = match NaiveDateTime::parse_from_str(ts_utc, "%Y-%m-%d %H:%M:%S%.f"){
+    //let ts_utc = netevent.ts_str.split(" +").collect::<Vec<_>>()[0]; // TODO: rethink
+    ret.ts = match NaiveDateTime::parse_from_str(&netevent.ts_str, "%Y-%m-%dT%H:%M:%SZ"){
         Ok(v) => v,
         Err(_) => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?
     };
@@ -321,8 +348,8 @@ pub fn dnsevent_to_er(dnsevent: templates::GenericDnsEvent) ->  Result<cache::Ge
         rawevent: serde_json::to_string(&dnsevent).unwrap()
     };
 
-    let ts_utc = dnsevent.ts_str.split(" +").collect::<Vec<_>>()[0]; // TODO: rethink
-    ret.ts = match NaiveDateTime::parse_from_str(ts_utc, "%Y-%m-%d %H:%M:%S%.f"){
+    
+    ret.ts = match NaiveDateTime::parse_from_str(&dnsevent.ts_str, "%Y-%m-%dT%H:%M:%SZ"){
         Ok(v) => v,
         Err(_) => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?
     };
@@ -363,6 +390,38 @@ pub fn regevent_to_er(regevent: templates::GenericRegEvent) ->  Result<cache::Ge
     ret.context1 = regevent.event_id.to_string();
     ret.context2 = regevent.provider_name;
     ret.context3 = match regevent.relative_name {
+        Some(s) => s,
+        None => "*NA".to_string()
+    };
+    Ok(ret)
+
+}
+
+
+pub fn fileevent_to_er(filevent: templates::GenericFileEvent) ->  Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
+
+    let mut ret = cache::GenericEventRecord {
+        ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
+        src: "ETW_MSWINFILE".to_string(),
+        host: "*NA".to_string(),
+        context1: "".to_string(),
+        context1_attrib: "event_id".to_string(),
+        context2: "*NA".to_string(),
+        context2_attrib: "provider_name".to_string(),
+        context3: "*NA".to_string(),
+        context3_attrib: "file_name".to_string(),
+        rawevent: serde_json::to_string(&filevent).unwrap()
+    };
+
+    ret.ts = match NaiveDateTime::parse_from_str(&filevent.ts_str, "%Y-%m-%dT%H:%M:%SZ"){
+        Ok(v) => v,
+        Err(_) => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?
+    };
+
+    ret.host = rtevents::get_hostname();
+    ret.context1 = filevent.event_id.to_string();
+    ret.context2 = filevent.provider_name;
+    ret.context3 = match filevent.file_name {
         Some(s) => s,
         None => "*NA".to_string()
     };
