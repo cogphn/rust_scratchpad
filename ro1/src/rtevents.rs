@@ -21,13 +21,13 @@ struct Process {
     name: String,
     executable_path: Option<String>,
     command_line: Option<String>,    
-    creation_class_name: String,
-    caption: Option<String>,    
+    //creation_class_name: String,
+    //caption: Option<String>,    
     creation_date: Option<String>,    
-    cs_creation_class_name : Option<String>,    
-    cs_name : Option<String>,
+    //cs_creation_class_name : Option<String>,    
+    //cs_name : Option<String>,
     description : Option<String>,    
-    execution_state : Option<u16>,
+    //execution_state : Option<u16>,
     handle : Option<String>,
     handle_count : Option<u32>,    
     parent_process_id : Option<u32>,
@@ -46,6 +46,7 @@ pub struct ProcessInfo {
     pub command_line: String,
     pub parent_process_id: u32,
     pub creation_date: NaiveDateTime,
+    pub creation_date_utc: NaiveDateTime,
     pub description: String,
     //pub execution_state: u16,
     pub handle: String,
@@ -88,30 +89,6 @@ pub fn get_hostname() -> String {
 }
 
 
-
-
-/*
-pub fn get_process_list() -> wmi::WMIResult<()> {
-    let com_lib = COMLibrary::new()?;
-    let wmi_con = WMIConnection::new(com_lib)?;
-    
-
-    let processes: Vec<Process> = wmi_con.query()?;
-
-    for process in processes {
-        println!("Creation Date: {:?}, Process ID: {}, Parent Process ID: {} Name: {}, Path: {:?}, Command Line:{:?}",
-            process.creation_date.expect("1970-01-01T00:00:00").to_rfc3339(),            
-            process.process_id,
-            process.parent_process_id,
-            process.name,
-            process.executable_path,
-            process.command_line            
-        );
-    }
-
-    Ok(())
-}
-*/
 pub async fn write_proclist_to_cache() -> Result<(), Box<dyn std::error::Error>> {    
     let process_list = match get_process_list() {
         Ok(pl) => pl,
@@ -137,6 +114,8 @@ pub fn get_process_list() -> Result<Vec<ProcessInfo>, Box<dyn std::error::Error>
     let process_infos: Vec<ProcessInfo> = processes
         .into_iter()
         .map(|p| { 
+            let cd_ts = p.creation_date.unwrap_or("1970-01-01T00:00:00".to_string());
+
             ProcessInfo { 
                 process_id: p.process_id,
                 hostname: get_hostname(),
@@ -144,7 +123,8 @@ pub fn get_process_list() -> Result<Vec<ProcessInfo>, Box<dyn std::error::Error>
                 executable_path: p.executable_path.unwrap_or_default(),
                 command_line: p.command_line.unwrap_or_default(),
                 parent_process_id: p.parent_process_id.unwrap_or(0 as u32),
-                creation_date: parser::convert_wmi_datetime_to_datetime(&p.creation_date.unwrap_or_default()).expect("1970-01-01T00:00:00"),
+                creation_date: parser::convert_wmi_datetime_to_datetime(&cd_ts).expect("1970-01-01T00:00:00"),
+                creation_date_utc: parser::convert_wmi_datetime_to_datetime(&cd_ts).expect("1970-01-01T00:00:00"),
                 description: p.description.unwrap_or_default(),
                 handle: p.handle.unwrap_or_default(),
                 handle_count: p.handle_count.unwrap_or_default(),
@@ -158,7 +138,7 @@ pub fn get_process_list() -> Result<Vec<ProcessInfo>, Box<dyn std::error::Error>
 }
 
 pub async fn process_observer(running: Arc<AtomicBool>) -> Result<(), Box<dyn std::error::Error>> {
-    println!(" [*] Monitoring for new process creation...\n");
+    println!("[*] Monitoring for new process creation...\n");
     let com_lib = COMLibrary::new()?;
     let wmi_con = WMIConnection::new(com_lib)?;
     let new_proc_query = "SELECT * FROM Win32_ProcessStartTrace";
@@ -171,15 +151,15 @@ pub async fn process_observer(running: Arc<AtomicBool>) -> Result<(), Box<dyn st
             println!("[*] Stopping process observer ...");
             break;
         }
-        match process_start_stream.next().await {
+        match process_start_stream.next().await { //TODO: fix this
             Some(event) => {
                 match event {
                     Ok(process) => {                        
-                        //print_process_info(&process, "Win32_ProcessStartTrace");
                         let _newproc = match parser::proc_hm_to_pi(&process, "Win32_ProcessStartTrace") {
                             Ok(pi) => {
                                 println!("{}",serde_json::to_string(&pi).unwrap());    
                                 let parsed_procinfo = parser::pi_to_er(&pi, "PROC");
+                                
                                 if let Ok(er) = parsed_procinfo {
                                     let _ = cache::get_runtime().spawn(async move {
                                         cache::insert_event(&er).await.ok();
@@ -202,17 +182,7 @@ pub async fn process_observer(running: Arc<AtomicBool>) -> Result<(), Box<dyn st
     Ok(())
 }
 
-fn print_process_info(process: &HashMap<String, Variant>, classname: &str) {    
-    let newproc = match parser::proc_hm_to_pi(process, classname) {
-        Ok(p) => p,
-        Err(e) => {
-            eprintln!(" [!] Error parsing process details: {:?}", e);
-            return;
-        }
-    };
-    println!("{}",serde_json::to_string(&newproc).unwrap());    
 
-}
 
 
 
@@ -233,15 +203,7 @@ pub fn get_process_details(process_id: u32) -> Result<HashMap<String, Variant>, 
     }
 }
 
-/*
-fn start_netevent_observer() -> Result<ferrisetw::UserTrace, ferrisetw::trace::TraceError> {
-    return etwevents::start_tcp_event_observer();
-}
 
-fn stop_netevent_observer(trace: ferrisetw::UserTrace) -> Result<(), ferrisetw::trace::TraceError> {
-    return etwevents::stop_tcp_event_observer(trace);
-}
-*/
 pub fn netevent_observer(running: Arc<AtomicBool>) {
     let trace_ret = etwevents::start_tcp_event_observer();
 
@@ -255,8 +217,8 @@ pub fn netevent_observer(running: Arc<AtomicBool>) {
         std::thread::sleep(std::time::Duration::new(5, 0));
     } 
 
-    let ret = match etwevents::stop_tcp_event_observer(trace) {
-        Ok(v) => {
+    let _ = match etwevents::stop_tcp_event_observer(trace) {
+        Ok(_v) => {
             println!("[*] Trace stopped successfully");
             return;
         }
@@ -268,15 +230,6 @@ pub fn netevent_observer(running: Arc<AtomicBool>) {
 
 }
 
-/*
-fn start_dns_observer() -> Result<ferrisetw::UserTrace, ferrisetw::trace::TraceError> {
-    return etwevents::start_dns_event_observer();
-}
-
-fn stop_dns_observer(trace: ferrisetw::UserTrace) -> Result<(), ferrisetw::trace::TraceError> {
-    return etwevents::stop_dns_event_observer(trace);
-}
-    */
 
 pub fn dns_event_observer(running: Arc<AtomicBool>) {
     let trace_ret = etwevents::start_dns_event_observer();
