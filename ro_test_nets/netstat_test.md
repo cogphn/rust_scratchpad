@@ -37,7 +37,7 @@ struct Process {
     creation_date: Option<String>,    
     description : Option<String>,    
     handle : Option<String>,
-    //handle_count : Option<u32>, //troublesome:  Err(HResultError { hres: -2147217406 })
+    //handle_count : Option<u32>, //troublesome:  Err(HResultError { hres: -2147217406 }) [on review - maybe because you did not select it in the query lol ]
     parent_process_id : Option<u32>,
     os_name : Option<String>,
     windows_version : Option<String>,
