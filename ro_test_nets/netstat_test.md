@@ -58,7 +58,7 @@ fn main() {
 
     // tests 
     //let pid: u32 = 3200;
-    //let process_data = get_process_by_id1(pid);
+    //let process_data = get_process_by_id(pid);
     //println!("{:?}", process_data);
 
     for si in sockets_info {
@@ -68,13 +68,13 @@ fn main() {
         // DBG
         /*
         x.into_iter().for_each(|pid|{
-            let z = get_process_by_id1(pid as u32);
+            let z = get_process_by_id(pid as u32);
             println!("{:?}", z);
         });
         */
 
         let conn_process_list: Vec<Process> = x.into_iter().map(|pid|{
-            get_process_by_id1(pid)
+            get_process_by_id(pid)
         }).collect();
         
 
@@ -126,42 +126,8 @@ pub fn convert_wmi_datetime_to_datetime_utc(wmi_date: &str) -> Result<NaiveDateT
     }
 }
 
-pub fn get_process_details(process_id: u32) -> Result<HashMap<String, Variant>, Box<dyn std::error::Error>> {
-    let com_con = COMLibrary::new()?;
-    let wmi_con = WMIConnection::new(com_con)?;
 
-    let query = format!(r#"SELECT CreationDate, Name, ProcessId, CommandLine, ParentProcessId, ExecutablePath, 
-                        Description, ExecutionState, Handle, InstallDate, OSName, WindowsVersion, SessionId
-                         FROM Win32_Process WHERE ProcessId = {}"#
-                         , process_id);
-    let results: Vec<HashMap<String, Variant>> = wmi_con.raw_query(&query)?;
-    if let Some(process) = results.into_iter().next() {
-        Ok(process)
-    } else {
-        Err("Process not found".into())
-    }
-    
-}
-
-pub fn get_process_by_id(process_id: u32) -> Result<Process, Box<dyn std::error::Error>> {
-    let com_con = COMLibrary::new()?;
-    let wmi_con = WMIConnection::new(com_con)?;
-
-    let query = format!(r#"SELECT CreationDate, Name, ProcessId, CommandLine, ParentProcessId, ExecutablePath, 
-                        Description, ExecutionState, Handle, InstallDate, OSName, WindowsVersion, SessionId
-                         FROM Win32_Process WHERE ProcessId = {}"#
-                         , process_id);
-    let results: Vec<Process> = wmi_con.raw_query(&query)?;
-    if let Some(process) = results.into_iter().next() {
-        Ok(process)
-    } else {
-        Err("Process not found".into())
-    }
-    
-}
-
-pub fn get_process_by_id1(process_id: u32) -> Process {
-    
+pub fn get_process_by_id(process_id: u32) -> Process {    
     let defaultproc = Process {
         process_id: 0,
         name: "*NA".to_string(),
@@ -209,5 +175,6 @@ pub fn get_process_by_id1(process_id: u32) -> Process {
     }
     
 }
+
 
 ~~~
