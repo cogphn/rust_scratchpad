@@ -14,7 +14,7 @@ use super::snapshot;
 
 pub mod etwevents;
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename = "Win32_Process")] 
 #[serde(rename_all = "PascalCase")]
 pub struct Process {
@@ -22,13 +22,8 @@ pub struct Process {
     pub name: String,
     pub executable_path: Option<String>,
     pub command_line: Option<String>,    
-    //pub creation_class_name: String,
-    //pub caption: Option<String>,    
     pub creation_date: Option<String>,    
-    //pub cs_creation_class_name : Option<String>,    
-    //pub cs_name : Option<String>,
     pub description : Option<String>,    
-    //pub execution_state : Option<u16>,
     pub handle : Option<String>,
     pub handle_count : Option<u32>,    
     pub parent_process_id : Option<u32>,
@@ -37,28 +32,8 @@ pub struct Process {
     pub session_id : Option<u32>
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(rename = "Win32_NetworkConnection")] 
-#[serde(rename_all = "PascalCase")]
-pub struct Netconn {
-  pub caption: Option<String>,
-  pub description: Option<String>,
-  pub install_date: Option<String>,
-  pub status: Option<String>,
-  pub access_mask: Option<u32>,
-  pub comment: Option<String>,
-  pub connection_state: Option<String>,
-  pub connection_type: Option<String>,
-  pub display_type: Option<String>,
-  pub local_name: Option<String>,
-  pub name: Option<String>,
-  pub persistent: Option<bool>,
-  pub provider_name: Option<String>,
-  pub remote_name: Option<String>,
-  pub remote_path: Option<String>,
-  pub resource_type: Option<String>,
-  pub user_name: Option<String>,
-}
+
+
 
 
 #[derive(Deserialize,Debug)]
@@ -114,6 +89,8 @@ pub fn get_hostname() -> String {
 }
 
 
+
+
 pub async fn write_proclist_to_cache() -> Result<(), Box<dyn std::error::Error>> {    
     let process_list = match snapshot::get_process_list() {
         Ok(pl) => pl,
@@ -131,6 +108,24 @@ pub async fn write_proclist_to_cache() -> Result<(), Box<dyn std::error::Error>>
     
     Ok(())
 }
+
+pub async fn write_netconns_to_cache() -> Result<(), Box<dyn std::error::Error>> {
+    let netconn_list = match snapshot::get_netconn_list() {
+        Ok(nl) => nl,
+        Err(e) => {
+            return Err(e);
+        }
+    };
+
+    for nl in netconn_list {
+        let er = parser::netconn_to_er(nl);
+        if let Ok(er) = er {
+            let _ = cache::insert_event(&er).await;
+        }
+    }
+    Ok(())
+}
+
 /*
 pub fn get_process_list() -> Result<Vec<ProcessInfo>, Box<dyn std::error::Error>> {
     let com_lib = COMLibrary::new()?;
@@ -210,6 +205,56 @@ pub async fn process_observer(running: Arc<AtomicBool>) -> Result<(), Box<dyn st
 
 
 
+pub fn get_process_by_id(process_id: u32) -> Process {    
+    let defaultproc = Process {
+        process_id: 0,
+        name: "*NA".to_string(),
+        executable_path: Some("*NA".to_string()),
+        command_line: Some("*NA".to_string()),    
+        creation_date: Some("*NA".to_string()),    
+        description : Some("*NA".to_string()),    
+        handle : Some("*NA".to_string()),
+        handle_count: Some(0),
+        parent_process_id : Some(0),
+        os_name : Some("*NA".to_string()),
+        windows_version : Some("*NA".to_string()),
+        session_id : Some(0)
+    };
+
+    let com_con = match COMLibrary::new() {
+        Ok(v) => v,
+        _ => {
+            return defaultproc
+        }
+    };
+
+    
+    let wmi_con = match WMIConnection::new(com_con){
+        Ok(v) => v,
+        _ => {
+            return defaultproc
+        }
+    };
+
+    let query = format!(r#"SELECT CreationDate, Name, ProcessId, CommandLine, ParentProcessId, ExecutablePath, 
+                        Description, ExecutionState, Handle, HandleCount, InstallDate, OSName, WindowsVersion, SessionId
+                         FROM Win32_Process WHERE ProcessId = {}"#
+                         , process_id);
+    let results: Vec<Process> = match wmi_con.raw_query(&query) {
+        Ok(v) => v,
+        _ => {
+            return defaultproc
+        }
+    };
+
+    if let Some(process) = results.into_iter().next() {
+        process
+    } else {
+        defaultproc
+    }
+    
+}
+
 
 
 pub fn get_process_details(process_id: u32) -> Result<HashMap<String, Variant>, Box<dyn std::error::Error>> {
@@ -229,7 +274,7 @@ pub fn get_process_details(process_id: u32) -> Result<HashMap<String, Variant>, 
     }
 }
 
-
+/*
 pub fn netevent_observer(running: Arc<AtomicBool>) {
     let trace_ret = etwevents::start_tcp_event_observer();
 
@@ -255,7 +300,7 @@ pub fn netevent_observer(running: Arc<AtomicBool>) {
     };
 
 }
-
+*/
 
 pub fn dns_event_observer(running: Arc<AtomicBool>) {
     let trace_ret = etwevents::start_dns_event_observer();
