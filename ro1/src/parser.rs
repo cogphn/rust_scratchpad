@@ -2,6 +2,7 @@
 use chrono::{DateTime, Utc, NaiveDateTime, ParseError, Local }; //, ParseError};
 use super::cache;
 use super::rtevents;
+use super::snapshot;
 use wmi::{Variant};
 use std::collections::HashMap;
 
@@ -425,6 +426,40 @@ pub fn fileevent_to_er(filevent: templates::GenericFileEvent) ->  Result<cache::
         Some(s) => s,
         None => "*NA".to_string()
     };
+    Ok(ret)
+
+}
+
+
+pub fn netconn_to_er(netconn: snapshot::Netconn) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
+    
+    let mut ret = cache::GenericEventRecord {
+        ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
+        src: "NETCONN".to_string(),
+        host: "*NA".to_string(),
+        context1: "0.0.0.0".to_string(),
+        context1_attrib: "local_address".to_string(),
+        context2: "0.0.0.0".to_string(),
+        context2_attrib: "remote_address".to_string(),
+        context3: "*NA".to_string(),
+        context3_attrib: "conntype".to_string(),
+        rawevent: serde_json::to_string(&netconn).unwrap()
+    };
+
+    ret.host = rtevents::get_hostname();
+    ret.context1 = netconn.local_address;
+    ret.context2 = netconn.remote_address;
+    ret.context3 = netconn.conntype;
+
+    if netconn.associated_processes.len() >= 1 {
+        let proc0 = &netconn.associated_processes[0];
+        let tsstr = match &proc0.creation_date {
+            Some(s) => s,
+            _ => &"1970-01-01T00:00:00".to_string()
+        };
+        ret.ts = convert_wmi_datetime_to_datetime_utc(&tsstr).unwrap();
+    }
+
     Ok(ret)
 
 }
