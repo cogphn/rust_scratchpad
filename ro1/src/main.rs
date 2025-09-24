@@ -42,10 +42,9 @@ async fn main() -> Result<()> {
     
     println!("[*] collecting volatile data (processlist)...");
     let _ = rtevents::write_proclist_to_cache().await;
-    
-
+    println!("[*] collecting volatile data (netconns)...");
+    let _ = rtevents::write_netconns_to_cache().await;
     println!("[*] Subscribing to Windows Event Logs...");
-
     let mut sub_handles = Vec::new();
     for c in elog_scope {
         let h = wels::get_evt_sub_handle(&c.channel_name, &c.query);
