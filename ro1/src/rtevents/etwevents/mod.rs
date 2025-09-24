@@ -367,6 +367,7 @@ fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
 
 
 // netconns 
+/*
 pub fn start_tcp_event_observer() -> Result<UserTrace, TraceError> {
 
     let ms_tcpip_provider = Provider::by_guid("2F07E2EE-15DB-40F1-90EF-9D7BA282188A") // Microsoft-Windows-TCPIP
@@ -381,6 +382,7 @@ pub fn start_tcp_event_observer() -> Result<UserTrace, TraceError> {
     
     return trace;
 }
+*/
 
 pub fn stop_tcp_event_observer(trace: UserTrace) -> Result<(), TraceError> {
     return trace.stop();
