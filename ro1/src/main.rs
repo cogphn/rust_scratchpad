@@ -21,6 +21,8 @@ pub mod snapshot;
 async fn main() -> Result<()> {
     
 
+
+
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
     let rc_rtevents = running.clone();
@@ -40,10 +42,24 @@ async fn main() -> Result<()> {
         wels::ElogChannel {channel_name: "Security".to_string(), query: "*".to_string()}
     ];
     
+    /*
     println!("[*] collecting volatile data (processlist)...");
     let _ = rtevents::write_proclist_to_cache().await;
+    */
+
+    /*
     println!("[*] collecting volatile data (netconns)...");
-    let _ = rtevents::write_netconns_to_cache().await;
+    let netconns_dump = thread::spawn(||{
+        rtevents::write_netconns_to_cache();
+    });
+    */
+    /*
+    println!("[*] dumping windows services...");
+    let winsvc_dump = thread::spawn(|| {
+        rtevents::write_services_to_cache();
+    });
+    */
+    
     println!("[*] Subscribing to Windows Event Logs...");
     let mut sub_handles = Vec::new();
     for c in elog_scope {
@@ -54,12 +70,18 @@ async fn main() -> Result<()> {
         }
         sub_handles.push(h);
     }
-    
+    println!("[*] collecting volatile data (netconns)...");
+    let _ = rtevents::write_netconns_to_cache().await;
+    println!("[*] collecting volatile data (processlist)...");
+    let _ = rtevents::write_proclist_to_cache().await;
+    println!("[*] dumping windows services...");
+    let _ = rtevents::write_services_to_cache().await;
+
+    // ETW listener startup    
     let etw_handle = thread::spawn(||{
         rtevents::etw_observer(rc_etwevents);
     });
-    
-
+    // process observer 
     let _ = rtevents::process_observer(rc_rtevents).await;
 
     while running.load(Ordering::SeqCst) {
