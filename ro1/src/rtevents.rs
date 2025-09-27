@@ -120,9 +120,35 @@ pub async fn write_netconns_to_cache() -> Result<(), Box<dyn std::error::Error>>
     for nl in netconn_list {
         let er = parser::netconn_to_er(nl);
         if let Ok(er) = er {
-            let _ = cache::insert_event(&er).await;
+            //let _ = cache::insert_event(&er).await;
+            cache::get_runtime().spawn(async move {
+                cache::insert_event(&er).await.ok();
+            });
         }
     }
+    Ok(())
+}
+
+pub async fn write_services_to_cache() -> Result<(), Box<dyn std::error::Error>> {
+    let service_list = match snapshot::get_service_list() {
+        Ok(sl) => sl,
+        Err(e) => {
+            return Err(e);
+        }
+    };
+
+    for sl in service_list {
+        let er = parser::service_to_er(sl);
+        if let Ok(er) = er {
+            //let _ = cache::insert_event(&er).await;
+            cache::get_runtime().spawn(async move {
+                cache::insert_event(&er).await.ok();
+            });
+        }
+    }
+
+    
+
     Ok(())
 }
 
