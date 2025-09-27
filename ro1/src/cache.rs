@@ -39,7 +39,6 @@ pub struct GenericEventRecord {
 }
 
 pub static CACHE_CONN: OnceLock<libsql::Connection> = OnceLock::new();
-
 pub static TOKIO_RUNTIME: OnceLock<Runtime> = OnceLock::new();
 
 pub fn get_runtime() -> &'static Runtime {
@@ -66,7 +65,9 @@ pub async fn insert_event(event: &GenericEventRecord) -> Result<(), libsql::Erro
     "#;
     
     let _conn = match CACHE_CONN.get() {
-        Some(c) => c.execute(query, (
+        Some(c) => {
+                let tx = c.transaction().await?;
+                tx.execute(query, (
                     event_ts,
                     event.src.clone(),
                     event.host.clone(),
@@ -77,7 +78,9 @@ pub async fn insert_event(event: &GenericEventRecord) -> Result<(), libsql::Erro
                     event.context3.clone(),
                     event.context3_attrib.clone(),
                     event.rawevent.clone()
-                )).await?,
+                )).await?;
+                tx.commit().await?;
+            }
         None => {
             println!(" [!] error inserting event: cache not initialized");
             return Err(libsql::Error::ConnectionFailed(" [!] cache not initialized".into()));
