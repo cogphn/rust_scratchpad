@@ -22,6 +22,38 @@ pub struct Netconn {
 }
 
 
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename = "Win32_Service")] 
+#[serde(rename_all = "PascalCase")]
+pub struct Service {
+  pub accept_pause: bool,
+  pub accept_stop: bool  ,
+  pub caption: Option<String>,
+  pub check_point: u32   ,
+  pub creation_class_name: Option<String>,
+  pub delayed_auto_start: bool,
+  pub description: Option<String>,
+  pub desktop_interact: bool,
+  pub display_name: Option<String>,
+  pub error_control: Option<String>,
+  pub exit_code: u32   ,
+  pub install_date: Option<String>,
+  pub name: Option<String>,
+  pub path_name: Option<String>,
+  pub process_id: u32   ,
+  pub service_specific_exit_code: u32,
+  pub service_type: Option<String>,
+  pub started: bool,
+  pub start_mode: Option<String>,
+  pub start_name: Option<String>,
+  pub state: Option<String>,
+  pub status: Option<String>,
+  pub system_creation_class_name: Option<String>,
+  pub system_name: Option<String>,
+  pub tag_id: u32,
+  pub wait_hint: u32,
+}
+
 
 
 pub fn get_process_list() -> Result<Vec<rtevents::ProcessInfo>, Box<dyn std::error::Error>> {
@@ -108,4 +140,11 @@ pub fn get_netconn_list() -> Result<Vec<Netconn>, Box<dyn std::error::Error>> {
         }).collect();
 
         return Ok(netconn_list);
+}
+
+pub fn get_service_list() -> Result<Vec<Service>, Box<dyn std::error::Error>> {
+    let com_lib = COMLibrary::new()?;
+    let wmi_conn = WMIConnection::new(com_lib)?;    
+    let services: Vec<Service> = wmi_conn.query()?;
+    return Ok(services);
 }
