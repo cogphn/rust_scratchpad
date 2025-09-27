@@ -463,3 +463,52 @@ pub fn netconn_to_er(netconn: snapshot::Netconn) -> Result<cache::GenericEventRe
     Ok(ret)
 
 }
+
+
+pub fn service_to_er(svc: snapshot::Service) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
+    
+    let mut ret = cache::GenericEventRecord {
+        ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
+        src: "SVCLIST".to_string(),
+        host: "*NA".to_string(),
+        context1: "*NA".to_string(),
+        context1_attrib: "name".to_string(),
+        context2: "*NA".to_string(),
+        context2_attrib: "path_name".to_string(),
+        context3: "*NA".to_string(),
+        context3_attrib: "status".to_string(),
+        rawevent: serde_json::to_string(&svc).unwrap()
+    };
+
+
+    match svc.install_date {
+        Some(install_date) => {
+            ret.ts = match NaiveDateTime::parse_from_str(&install_date, "%Y-%m-%dT%H:%M:%SZ"){
+                Ok(v) => v,
+                Err(_) => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?
+            };
+        },
+        None => ret.ts = NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
+    };
+
+    
+
+
+    ret.context1 = match svc.name { 
+        Some(name) => name,
+        None => "*NA".to_string()
+    };
+    
+    ret.context2 = match svc.path_name {
+        Some(path_name) => path_name,
+        None => "*NA".to_string()
+    };
+    
+    ret.context3 = match svc.status {
+        Some(status) => status,
+        None => "*NA".to_string()
+    };
+    
+    Ok(ret)   
+
+}
