@@ -38,8 +38,6 @@ pub unsafe extern "system" fn event_callback(
                      &mut property_count,
                  )};
             
-            
-            //let mut buffer = vec![0u8; buffer_used as usize]; //working - old 
             let mut buffer = vec![0u16; buffer_used as usize]; // work
             let buffer_size = buffer_used;
 

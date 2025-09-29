@@ -92,27 +92,3 @@ pub async fn insert_event(event: &GenericEventRecord) -> Result<(), libsql::Erro
     Ok(())
 }
 
-
-
-/*
-pub async fn insert_wel_event(conn: &Connection, event: &str) -> Result<()> {
-    let now = Utc::now().naive_utc();
-    let event_json = serde_json::from_str::<serde_json::Value>(event);
-    if event_json.is_err() {
-        return Err(duckdb::Error::Execute("Failed to parse event JSON".to_string()));
-    }
-    let record = EventRecord {
-        ts: now,
-        src: "WEL".to_string(),
-        context1: event_json["Event"]["#c"][0]["System"]["#c"][1]["EventID"]["#t"],
-        context1_attrib: "N/A".to_string(),
-        context2: "N/A".to_string(),
-        context2_attrib: "N/A".to_string(),
-        context3: "N/A".to_string(),
-        context3_attrib: "N/A".to_string(),
-        rawevent: event.to_string()
-    };
-    insert_event(conn, &record).await
-}
- */
-

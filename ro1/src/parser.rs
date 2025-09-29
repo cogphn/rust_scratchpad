@@ -491,8 +491,7 @@ pub fn service_to_er(svc: snapshot::Service) -> Result<cache::GenericEventRecord
         None => ret.ts = NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
     };
 
-    
-
+    ret.host = rtevents::get_hostname();
 
     ret.context1 = match svc.name { 
         Some(name) => name,
