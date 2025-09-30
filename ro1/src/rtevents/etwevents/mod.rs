@@ -641,8 +641,8 @@ pub fn start_etw_providers() -> Result<UserTrace, TraceError> {
         .enable(win_dns_provider)
         .enable(ms_tcpip_provider)
         .enable(ms_reg_provider)
-        .enable(win_file_provider)
-        //.enable(win_secaudit_provider) // not working 
+        //.enable(win_file_provider)
+        //.enable(win_secaudit_provider) // not working - keep disabled for now 
         .start_and_process();
 
     trace

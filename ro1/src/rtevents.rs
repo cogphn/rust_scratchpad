@@ -120,10 +120,7 @@ pub async fn write_netconns_to_cache() -> Result<(), Box<dyn std::error::Error>>
     for nl in netconn_list {
         let er = parser::netconn_to_er(nl);
         if let Ok(er) = er {
-            //let _ = cache::insert_event(&er).await;
-            cache::get_runtime().spawn(async move {
-                cache::insert_event(&er).await.ok();
-            });
+            let _ = cache::insert_event(&er).await;
         }
     }
     Ok(())
@@ -140,10 +137,12 @@ pub async fn write_services_to_cache() -> Result<(), Box<dyn std::error::Error>>
     for sl in service_list {
         let er = parser::service_to_er(sl);
         if let Ok(er) = er {
-            //let _ = cache::insert_event(&er).await;
+            let _ = cache::insert_event(&er).await;
+            /*
             cache::get_runtime().spawn(async move {
                 cache::insert_event(&er).await.ok();
             });
+             */
         }
     }
 
@@ -208,9 +207,12 @@ pub async fn process_observer(running: Arc<AtomicBool>) -> Result<(), Box<dyn st
                                 let parsed_procinfo = parser::pi_to_er(&pi, "PROC");
                                 
                                 if let Ok(er) = parsed_procinfo {
+                                    /*
                                     let _ = cache::get_runtime().spawn(async move {
                                         cache::insert_event(&er).await.ok();
                                     });
+                                     */
+                                    let _ = cache::insert_event(&er).await.ok();
                                 }
                             },
                             Err(e) => {

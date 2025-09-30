@@ -9,6 +9,8 @@ use std::sync::OnceLock;
 
 use tokio::runtime::Runtime;
 
+//use crate::cache;
+
 pub const CACHE_SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS events (  
   ts TIMESTAMP, 
@@ -40,15 +42,22 @@ pub struct GenericEventRecord {
 
 pub static CACHE_CONN: OnceLock<libsql::Connection> = OnceLock::new();
 pub static TOKIO_RUNTIME: OnceLock<Runtime> = OnceLock::new();
+pub static CACHE_PATH: OnceLock<String> = OnceLock::new();
 
 pub fn get_runtime() -> &'static Runtime {
     TOKIO_RUNTIME.get_or_init(|| {
-        Runtime::new().expect("Failed to create Tokio runtime")
+        Runtime::new().expect("Failed to create Tokio runtime") //TODO: Review
     })
+}
+
+pub fn get_new_runtime() -> Result<Runtime, std::io::Error> {
+    return Runtime::new();
 }
 
 pub async fn initialize_cache(cache_path: &str) -> Result<(), libsql::Error> {
     //let db_exists = std::path::Path::new(cache_path).exists();
+    //let dbpath = cache_path.to_string();
+    //CACHE_PATH.set(dbpath).unwrap(); 
     let db = libsql::Builder::new_local(cache_path).build().await?;
     let conn = db.connect().unwrap();
     conn.execute(CACHE_SCHEMA, ()).await.unwrap();
@@ -63,10 +72,10 @@ pub async fn insert_event(event: &GenericEventRecord) -> Result<(), libsql::Erro
     INSERT INTO events (ts, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     "#;
-    
     let _conn = match CACHE_CONN.get() {
         Some(c) => {
                 let tx = c.transaction().await?;
+                tx.reset().await;
                 tx.execute(query, (
                     event_ts,
                     event.src.clone(),
