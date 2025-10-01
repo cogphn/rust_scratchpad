@@ -127,7 +127,12 @@ fn parse_etw_file_event (schema: &Schema, record: &EventRecord) {
     //let fileeventstr = serde_json::to_string(&filevent).unwrap();    
     let er = parser::fileevent_to_er(filevent).unwrap();
 
+    /*
     cache::get_runtime().spawn(async move {
+        cache::insert_event(&er).await.ok();
+    });
+    */
+    cache::get_new_runtime().expect("[!] could not get cache runtime").spawn(async move {
         cache::insert_event(&er).await.ok();
     });
 
@@ -355,7 +360,12 @@ fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
     // DBG2
     //let netsr = serde_json::to_string(&net_event_data).unwrap();
     let er = parser::netevent_to_er(net_event_data).unwrap();
+    /* 
     cache::get_runtime().spawn(async move {
+        cache::insert_event(&er).await.ok();
+    });
+    */
+    cache::get_new_runtime().expect("[!] could not get cache runtime").spawn(async move {
         cache::insert_event(&er).await.ok();
     });
 
@@ -497,13 +507,19 @@ fn parse_dns_event(schema: &Schema, record: &EventRecord) {
     };
 
     //let dnsstr = serde_json::to_string(&dns_event).unwrap();
+    //println!("{}", dnsstr);
+    
     let er = parser::dnsevent_to_er(dns_event).unwrap();
-
+    /*
     cache::get_runtime().spawn(async move {
         cache::insert_event(&er).await.ok();
     });
+    */
+    cache::get_new_runtime().expect("[!] could not get cache runtime").spawn(async move {
+        cache::insert_event(&er).await.ok();
+    });
 
-    //println!("{}", dnsstr);
+    
 
 
 }
@@ -570,10 +586,16 @@ fn parse_etw_reg_event(schema: &Schema, record: &EventRecord) {
 
     //let regstr = serde_json::to_string(&reg_event).unwrap();
     let er = parser::regevent_to_er(reg_event).unwrap();
-
+    /*
     cache::get_runtime().spawn(async move {
         cache::insert_event(&er).await.ok();
     });
+    */
+
+    cache::get_new_runtime().expect("[!] could not get cache runtime").spawn(async move {
+        cache::insert_event(&er).await.ok();
+    });
+
 
     //println!("{}", regstr);
 }
@@ -641,7 +663,7 @@ pub fn start_etw_providers() -> Result<UserTrace, TraceError> {
         .enable(win_dns_provider)
         .enable(ms_tcpip_provider)
         .enable(ms_reg_provider)
-        //.enable(win_file_provider)
+        .enable(win_file_provider)
         //.enable(win_secaudit_provider) // not working - keep disabled for now 
         .start_and_process();
 
