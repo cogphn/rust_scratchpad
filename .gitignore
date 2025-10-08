@@ -1,3 +1,5 @@
 ro1/target/*
 cache.db*
 Cargo.lock
+ow01/static/*
+ow01/target/*
