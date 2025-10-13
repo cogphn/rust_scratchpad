@@ -13,6 +13,7 @@ use tokio::runtime::Runtime;
 
 pub const CACHE_SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS events (  
+  id INTEGER PRIMARY KEY,
   ts TIMESTAMP, 
   src TEXT, 
   host TEXT,
@@ -28,6 +29,7 @@ CREATE TABLE IF NOT EXISTS events (
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GenericEventRecord {
+    pub id: Option<i64>,
     pub ts: NaiveDateTime,
     pub src: String,
     pub host: String,
@@ -55,9 +57,7 @@ pub fn get_new_runtime() -> Result<Runtime, std::io::Error> {
 }
 
 pub async fn initialize_cache(cache_path: &str) -> Result<(), libsql::Error> {
-    //let db_exists = std::path::Path::new(cache_path).exists();
-    //let dbpath = cache_path.to_string();
-    //CACHE_PATH.set(dbpath).unwrap(); 
+    
     let db = libsql::Builder::new_local(cache_path).build().await?;
     let conn = db.connect().unwrap();
     conn.execute(CACHE_SCHEMA, ()).await.unwrap();

@@ -210,6 +210,7 @@ pub fn proc_hm_to_pi(process: &HashMap<String, Variant>, classname: &str) -> Res
 
 pub fn pi_to_er(pi:&rtevents::ProcessInfo, procsrc: &str) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
     let ret  = cache::GenericEventRecord {
+        id: None,
         ts: pi.creation_date_utc,
         src: procsrc.to_string(),
         host: pi.hostname.clone(),
@@ -228,6 +229,7 @@ pub fn pi_to_er(pi:&rtevents::ProcessInfo, procsrc: &str) -> Result<cache::Gener
 
 pub fn wel_json_to_er(event_str: &str) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
     let mut ret  = cache::GenericEventRecord {
+        id: None,
         ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
         src: "WELS".to_string(),
         host: "N/A".to_string(),
@@ -305,6 +307,7 @@ pub fn wel_json_to_er(event_str: &str) -> Result<cache::GenericEventRecord, Box<
 pub fn netevent_to_er(netevent: templates::GeneralNetEvent) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
 
     let mut ret  = cache::GenericEventRecord {
+        id: None,
         ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
         //ts: NaiveDateTime::parse_from_str(&netevent.ts_str, "%Y-%m-%d %H:%M:%S")?,
         src: "ETW_MSWINTCP".to_string(),
@@ -337,6 +340,7 @@ pub fn netevent_to_er(netevent: templates::GeneralNetEvent) -> Result<cache::Gen
 pub fn dnsevent_to_er(dnsevent: templates::GenericDnsEvent) ->  Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
 
     let mut ret = cache::GenericEventRecord {
+        id: None,
         ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
         src: "ETW_MSWINDNS".to_string(),
         host: "*NA".to_string(),
@@ -370,6 +374,7 @@ pub fn dnsevent_to_er(dnsevent: templates::GenericDnsEvent) ->  Result<cache::Ge
 pub fn regevent_to_er(regevent: templates::GenericRegEvent) ->  Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
 
     let mut ret = cache::GenericEventRecord {
+        id: None,
         ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
         src: "ETW_MSWINREG".to_string(),
         host: "*NA".to_string(),
@@ -402,6 +407,7 @@ pub fn regevent_to_er(regevent: templates::GenericRegEvent) ->  Result<cache::Ge
 pub fn fileevent_to_er(filevent: templates::GenericFileEvent) ->  Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
 
     let mut ret = cache::GenericEventRecord {
+        id: None,
         ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
         src: "ETW_MSWINFILE".to_string(),
         host: "*NA".to_string(),
@@ -434,6 +440,7 @@ pub fn fileevent_to_er(filevent: templates::GenericFileEvent) ->  Result<cache::
 pub fn netconn_to_er(netconn: snapshot::Netconn) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
     
     let mut ret = cache::GenericEventRecord {
+        id: None,
         ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
         src: "NETCONN".to_string(),
         host: "*NA".to_string(),
@@ -468,6 +475,7 @@ pub fn netconn_to_er(netconn: snapshot::Netconn) -> Result<cache::GenericEventRe
 pub fn service_to_er(svc: snapshot::Service) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
     
     let mut ret = cache::GenericEventRecord {
+        id: None,
         ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
         src: "SVCLIST".to_string(),
         host: "*NA".to_string(),
