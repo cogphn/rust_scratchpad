@@ -1,9 +1,8 @@
-ro1/target/*
 cache.db*
 Cargo.lock
 ow01/static/*
-ow01/target/*
 ro1/cache_sample.db
-mpush/target/*
 mpush/_config.json
 mpush/meili_config.json
+*/target/*
+*.db
