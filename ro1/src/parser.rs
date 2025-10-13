@@ -84,16 +84,7 @@ pub fn proc_hm_to_pi(process: &HashMap<String, Variant>, classname: &str) -> Res
         newproc.creation_date = convert_wmi_datetime_to_datetime(&cd_str).unwrap();
         newproc.creation_date_utc = convert_wmi_datetime_to_datetime_utc(&cd_str).unwrap();
 
-        /*
-        newproc.creation_date = match process.get("CreationDate") {
-            Some(Variant::String(s)) => convert_wmi_datetime_to_datetime(&s).unwrap(),            
-            _ => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
-        };
-        newproc.creation_date_utc = match process.get("CreationDate") {
-            Some(Variant::String(s)) => convert_wmi_datetime_to_datetime_utc(&s).unwrap(),
-            _ => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
-        };
-        */  
+        
         newproc.description = match process.get("Description") {
             Some(Variant::String(s)) => s.to_string(),
             Some(Variant::Null) => "*NA".to_string(),
@@ -220,7 +211,6 @@ pub fn pi_to_er(pi:&rtevents::ProcessInfo, procsrc: &str) -> Result<cache::Gener
         context2_attrib: "PID".to_string(),
         context3: pi.parent_process_id.to_string(),
         context3_attrib: "PPID".to_string(),
-        //rawevent: format!("Path: {}, CommandLine: {}", pi.executable_path, pi.command_line)
         rawevent: serde_json::to_string(pi).unwrap()
     };
     Ok(ret)
@@ -245,10 +235,7 @@ pub fn wel_json_to_er(event_str: &str) -> Result<cache::GenericEventRecord, Box<
     let event_json = serde_json::from_str::<serde_json::Value>(event_str).unwrap();
     let system_json_array = &event_json["Event"]["#c"][0]["System"]["#c"];
     let system_json_array = system_json_array.as_array();
-    /*
-    "Provider", "EventID", "Version", "Level", "Task", "Opcode", "Keywords", "TimeCreated",
-    "EventRecordID", "Correlation", "Execution", "Channel", "Computer", "Security" ,     
-    */
+    
     for a in system_json_array.iter() {
         for val in a.iter() {
             for k in val.as_object().expect("INVALID").keys() {
@@ -309,7 +296,6 @@ pub fn netevent_to_er(netevent: templates::GeneralNetEvent) -> Result<cache::Gen
     let mut ret  = cache::GenericEventRecord {
         id: None,
         ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
-        //ts: NaiveDateTime::parse_from_str(&netevent.ts_str, "%Y-%m-%d %H:%M:%S")?,
         src: "ETW_MSWINTCP".to_string(),
         host: "N/A".to_string(),
         context1: "".to_string(),

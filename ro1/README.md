@@ -4,7 +4,7 @@ a mini data collector (name pending). It's goal is to enable security researcher
 
 ### ... but SIEMs exist
 
-I KNOW, but I had to grab some telemetry for a presentation, and my lab was ...between usable states... ; So anyway I knew the attack I wanted to replay, and I knew that the data would normally be really easy to get if I had a SIEM running, but in that moment it seemed really annoying that the shortest path to getting the data I wanted was:
+I KNOW, but what if you didn't have one? So one time I had to grab some telemetry for a presentation, and my lab was ...between usable states... ; So anyway I knew the attack I wanted to replay, and I knew that the data would normally be really easy to get if I had a SIEM running, but in that moment it seemed really annoying that the shortest path to getting the data I wanted was:
  - provision resources
  - install a SIEM (likely elastic - no shade, elastic is GREAT)
  - configure an agent
