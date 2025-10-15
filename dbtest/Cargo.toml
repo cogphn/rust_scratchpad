@@ -12,3 +12,7 @@ tokio = "1.47.1"
 [[bin]]
 name = "mem_to_disk"
 path ="src/mem_to_disk.rs"
+
+[[bin]]
+name = "copy_test"
+path ="src/copy_test.rs"
