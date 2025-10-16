@@ -103,6 +103,36 @@ fn parse_etw_file_event (schema: &Schema, record: &EventRecord) {
     let dtnow = chrono::Utc::now();
     let timestamp = dtnow.to_rfc3339_opts(chrono::format::SecondsFormat::Secs, true);
 
+    let mut noise_event: bool = false;
+
+    let filepath: Option<String> = parser.try_parse("FilePath").ok();
+    let filename: Option<String> = parser.try_parse("FileName").ok();
+
+    match filepath  {
+        Some(fp) => {
+            match fp.find("cache.db-journal") {
+                Some(_idx) => {
+                    noise_event = true;
+                },
+                None => {}
+            };
+        },
+        None => {}
+    };
+
+    match filename  {
+        Some(fp) => {
+            match fp.find("cache.db-journal") {
+                Some(_idx) => {
+                    noise_event = true;
+                },
+                None => {}
+            };
+        },
+        None => {}
+    };
+    
+
 
     let filevent = templates::GenericFileEvent {
         ts_str: timestamp,
@@ -124,20 +154,13 @@ fn parse_etw_file_event (schema: &Schema, record: &EventRecord) {
         file_name: parser.try_parse("FileName").ok()
     };
 
-    //let fileeventstr = serde_json::to_string(&filevent).unwrap();    
-    let er = parser::fileevent_to_er(filevent).unwrap();
-
-    /*
-    cache::get_runtime().spawn(async move {
-        cache::insert_event(&er).await.ok();
-    });
-    */
-    cache::get_new_runtime().expect("[!] could not get cache runtime").spawn(async move {
-        cache::insert_event(&er).await.ok();
-    });
-
-
-
+    if !noise_event {
+        let er = parser::fileevent_to_er(filevent).unwrap();
+        cache::get_new_runtime().expect("[!] could not get cache runtime").spawn(async move {
+            cache::insert_event(&er).await.ok();
+        });
+    }
+    
 
 }
 

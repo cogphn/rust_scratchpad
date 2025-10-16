@@ -302,33 +302,6 @@ pub fn get_process_details(process_id: u32) -> Result<HashMap<String, Variant>, 
     }
 }
 
-/*
-pub fn netevent_observer(running: Arc<AtomicBool>) {
-    let trace_ret = etwevents::start_tcp_event_observer();
-
-    if let Err(e) = &trace_ret {
-        eprintln!("[!] Error starting TCPIP trace: {:?}", e);
-        return;
-    }
-    let trace = trace_ret.unwrap();
-
-    while running.load(Ordering::SeqCst) == true {
-        std::thread::sleep(std::time::Duration::new(5, 0));
-    } 
-
-    let _ = match etwevents::stop_tcp_event_observer(trace) {
-        Ok(_v) => {
-            println!("[*] Trace stopped successfully");
-            return;
-        }
-        Err (traceerr) => {
-            eprintln!("[!] Error stopping trace: {:?}", traceerr);
-            return;
-        }
-    };
-
-}
-*/
 
 pub fn dns_event_observer(running: Arc<AtomicBool>) {
     let trace_ret = etwevents::start_dns_event_observer();
