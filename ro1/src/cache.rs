@@ -15,6 +15,7 @@ pub const CACHE_SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS events (  
   id INTEGER PRIMARY KEY,
   ts TIMESTAMP, 
+  ts_type TEXT,
   src TEXT, 
   host TEXT,
   context1 TEXT, 
@@ -31,6 +32,7 @@ CREATE TABLE IF NOT EXISTS events (
 pub struct GenericEventRecord {
     pub id: Option<i64>,
     pub ts: NaiveDateTime,
+    pub ts_type: String,
     pub src: String,
     pub host: String,
     pub context1: String,
@@ -69,8 +71,8 @@ pub async fn insert_event(event: &GenericEventRecord) -> Result<(), libsql::Erro
     let event_ts = event.ts.format("%Y-%m-%d %H:%M:%S").to_string();
 
     let query = r#"
-    INSERT INTO events (ts, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    INSERT INTO events (ts, ts_type, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     "#;
     let _conn = match CACHE_CONN.get() {
         Some(c) => {
@@ -78,6 +80,7 @@ pub async fn insert_event(event: &GenericEventRecord) -> Result<(), libsql::Erro
                 tx.reset().await;
                 tx.execute(query, (
                     event_ts,
+                    event.ts_type.clone(),
                     event.src.clone(),
                     event.host.clone(),
                     event.context1.clone(),

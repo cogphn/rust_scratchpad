@@ -203,6 +203,7 @@ pub fn pi_to_er(pi:&rtevents::ProcessInfo, procsrc: &str) -> Result<cache::Gener
     let ret  = cache::GenericEventRecord {
         id: None,
         ts: pi.creation_date_utc,
+        ts_type: "process_creation_date".to_string(),
         src: procsrc.to_string(),
         host: pi.hostname.clone(),
         context1: pi.name.clone(),
@@ -221,6 +222,7 @@ pub fn wel_json_to_er(event_str: &str) -> Result<cache::GenericEventRecord, Box<
     let mut ret  = cache::GenericEventRecord {
         id: None,
         ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
+        ts_type: "creation_time".to_string(),
         src: "WELS".to_string(),
         host: "N/A".to_string(),
         context1: "N/A".to_string(),
@@ -296,6 +298,7 @@ pub fn netevent_to_er(netevent: templates::GeneralNetEvent) -> Result<cache::Gen
     let mut ret  = cache::GenericEventRecord {
         id: None,
         ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
+        ts_type: "netevent_timestamp".to_string(),
         src: "ETW_MSWINTCP".to_string(),
         host: "N/A".to_string(),
         context1: "".to_string(),
@@ -328,6 +331,7 @@ pub fn dnsevent_to_er(dnsevent: templates::GenericDnsEvent) ->  Result<cache::Ge
     let mut ret = cache::GenericEventRecord {
         id: None,
         ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
+        ts_type: "dnsevent_timestamp".to_string(),
         src: "ETW_MSWINDNS".to_string(),
         host: "*NA".to_string(),
         context1: "".to_string(),
@@ -362,6 +366,7 @@ pub fn regevent_to_er(regevent: templates::GenericRegEvent) ->  Result<cache::Ge
     let mut ret = cache::GenericEventRecord {
         id: None,
         ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
+        ts_type: "regevent_timestamp".to_string(),
         src: "ETW_MSWINREG".to_string(),
         host: "*NA".to_string(),
         context1: "".to_string(),
@@ -395,6 +400,7 @@ pub fn fileevent_to_er(filevent: templates::GenericFileEvent) ->  Result<cache::
     let mut ret = cache::GenericEventRecord {
         id: None,
         ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
+        ts_type: "filevent_timestamp".to_string(),
         src: "ETW_MSWINFILE".to_string(),
         host: "*NA".to_string(),
         context1: "".to_string(),
@@ -428,6 +434,7 @@ pub fn netconn_to_er(netconn: snapshot::Netconn) -> Result<cache::GenericEventRe
     let mut ret = cache::GenericEventRecord {
         id: None,
         ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
+        ts_type: "netevent_timestamp".to_string(),
         src: "NETCONN".to_string(),
         host: "*NA".to_string(),
         context1: "0.0.0.0".to_string(),
@@ -451,6 +458,7 @@ pub fn netconn_to_er(netconn: snapshot::Netconn) -> Result<cache::GenericEventRe
             _ => &"1970-01-01T00:00:00".to_string()
         };
         ret.ts = convert_wmi_datetime_to_datetime_utc(&tsstr).unwrap();
+        ret.ts_type = "process_creation_timestamp".to_string();
     }
 
     Ok(ret)
@@ -463,6 +471,7 @@ pub fn service_to_er(svc: snapshot::Service) -> Result<cache::GenericEventRecord
     let mut ret = cache::GenericEventRecord {
         id: None,
         ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
+        ts_type: "service_install_date".to_string(),
         src: "SVCLIST".to_string(),
         host: "*NA".to_string(),
         context1: "*NA".to_string(),
