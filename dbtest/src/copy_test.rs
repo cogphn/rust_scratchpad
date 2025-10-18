@@ -1,37 +1,14 @@
 
-use std::thread;
-
-use serde_json;
-//use sea_orm::entity::prelude::*;
 use libsql::params;
 
 
 
-//#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
-//#[sea_orm(table_name = "events")]
-struct Event {
-    pub id: Option<i64>,
-    pub val1: String, 
-    pub note: String
-}
 
-
-pub async fn write_to_disk(events: Vec<Event>, disk_db_connection: libsql::Connection) -> Result<(), Box <dyn std::error::Error>> {
-
-    let tx = disk_db_connection.transaction().await?;
-    let insert_query = "INSERT INTO events (val1, note) VALUES (?, ?);";
-    for event in events { // this is fine... this is allegedly fine :/ 
-        tx.execute(insert_query, (event.val1, event.note)).await?;
-    }
-    tx.commit().await?;
-
-    Ok (())
-}
 
 
 pub async fn copy_table(src_db_connection: libsql::Connection, dest_db_connection: libsql::Connection, batchsize: i64) -> Result<(), Box <dyn std::error::Error>> {
 
-    let mut q_template = r#"
+    let q_template = r#"
     SELECT ts, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent
     FROM events LIMIT ?1
     OFFSET ?2
@@ -49,6 +26,7 @@ pub async fn copy_table(src_db_connection: libsql::Connection, dest_db_connectio
 
         let tx = dest_db_connection.transaction().await?;
         let insert_query = "INSERT INTO events (ts, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+        let mut num_rows: i64 = 0;
         while let Some(row) = results.next().await? {
             let ts = row.get::<String>(0).unwrap();
             let src = row.get::<String>(1).unwrap();
@@ -64,11 +42,15 @@ pub async fn copy_table(src_db_connection: libsql::Connection, dest_db_connectio
 
             let rawevent = row.get::<String>(9).unwrap();
             tx.execute(insert_query, (ts, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent)).await?;
-
+            num_rows +=1;
         }
         tx.commit().await?;
-        
-        offset += batchsize;
+        println!("[DBG] num_rows: {}", num_rows);
+        if num_rows == 0 {
+            break;
+        }
+        offset += num_rows;
+        println!("[DBG] offset: {}", offset);
     }
 
 
@@ -110,7 +92,7 @@ CREATE TABLE IF NOT EXISTS events (
     src_conn.execute(ddl, ()).await.unwrap();
     dest_conn.execute(ddl, ()).await.unwrap();
 
-    copy_table(src_conn, dest_conn, 100).await?;
+    copy_table(src_conn, dest_conn, 10).await?;
 
     println!("[.] Done!");
     Ok (())
