@@ -27,6 +27,7 @@ async fn main() -> Result<()> {
     let r = running.clone();
     let rc_rtevents = running.clone();
     let rc_etwevents = running.clone();
+    let rc_dbsync = running.clone();
 
     cache::initialize_cache("cache.db").await.expect(" [!] failed to initialize cache");
 
@@ -77,13 +78,26 @@ async fn main() -> Result<()> {
     println!("[*] dumping windows services...");
     let _ = rtevents::write_services_to_cache().await;
 
+    
+    //let db_disk_sync = cache::db_disk_sync(rc_dbsync);
+    //let db_sync_handle = tokio::spawn(db_disk_sync);
+    
+
+    //let dbsync = tokio::task::spawn(cache::db_disk_sync(rc_dbsync));
+
+
     // ETW listener startup    
     let etw_handle = thread::spawn(||{
         rtevents::etw_observer(rc_etwevents);
     });
+    let dbsync_handle = thread::spawn(||{
+        cache::db_disk_sync(rc_dbsync);
+    });
+    
     // process observer 
     let _ = rtevents::process_observer(rc_rtevents).await;
-
+    
+    
     while running.load(Ordering::SeqCst) {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
@@ -93,7 +107,10 @@ async fn main() -> Result<()> {
             let _ = EvtClose(h?);
         }
         let _ = etw_handle.join();
+        let _ = dbsync_handle.join();
     }
+
+    let _  = cache::last_write().await;
 
     println!("[.] Done.");
     
