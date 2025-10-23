@@ -91,7 +91,7 @@ async fn main() -> Result<()> {
         rtevents::etw_observer(rc_etwevents);
     });
     let dbsync_handle = thread::spawn(||{
-        cache::db_disk_sync(rc_dbsync);
+        let _ = cache::db_disk_sync(rc_dbsync);
     });
     
     // process observer 

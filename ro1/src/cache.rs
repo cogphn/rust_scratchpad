@@ -1,19 +1,12 @@
-//use std::fs;
-//use serde_json::Value;
 use chrono::{NaiveDateTime};
 use serde::{Deserialize, Serialize};
-use std::thread::current;
 use std::{sync::OnceLock};
-//use surrealdb::Surreal;
-//use surrealdb::engine::local::RocksDb;
 use std::sync::Arc;
-
 
 use tokio::runtime::Runtime;
 use libsql::params;
 use std::sync::atomic::{AtomicBool, Ordering};
-use tokio::runtime;
-//use crate::cache;
+//use tokio::runtime;
 
 pub const CACHE_SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS events (  
@@ -109,7 +102,14 @@ pub async fn last_write() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut mr_rows = persist_conn.query(num_persisted_rows_query, ()).await.unwrap();
     let mr_row = mr_rows.next().await.unwrap().unwrap();
-    let mut current_offset = mr_row.get::<i64>(0).unwrap();
+    let mut current_offset = match mr_row.get::<i64>(0) {
+        Ok(val) => val,
+        Err(_) => 0
+    };
+
+    if current_offset == 0 {
+        return Ok(());
+    }
 
     println!("[DBG - cache::last_write]  current offset: {}", current_offset);
     let batchsize: i64 = 1000;
@@ -162,9 +162,6 @@ pub fn db_disk_sync(running:Arc<AtomicBool>) -> Result<(), Box<dyn std::error::E
     let insert_query = "INSERT INTO events (ts, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
     let num_persisted_rows_query = "SELECT MAX(id) as maxid FROM events";
-    
-
-    
 
     let batchsize: i64 = 1000;
 
@@ -183,11 +180,6 @@ pub fn db_disk_sync(running:Arc<AtomicBool>) -> Result<(), Box<dyn std::error::E
     };
 
 
-
-    
-
-
-
     while running.load(Ordering::SeqCst) == true {
 
         std::thread::sleep(std::time::Duration::new(5, 0));
@@ -197,7 +189,10 @@ pub fn db_disk_sync(running:Arc<AtomicBool>) -> Result<(), Box<dyn std::error::E
         rt.block_on(async {
             let mut mid_rows = persist_conn.query(num_persisted_rows_query, ()).await.unwrap();
             let mid_row = mid_rows.next().await.unwrap().unwrap();
-            let poffset = mid_row.get::<i64>(0).unwrap();
+            let poffset = match mid_row.get::<i64>(0) { 
+                Ok(val) => val,
+                Err(_) => 0
+            };
 
             println!("[DBG - cache::db_disk_sync]; offset: {}", poffset);
 
