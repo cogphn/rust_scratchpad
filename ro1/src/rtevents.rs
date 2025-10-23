@@ -138,11 +138,6 @@ pub async fn write_services_to_cache() -> Result<(), Box<dyn std::error::Error>>
         let er = parser::service_to_er(sl);
         if let Ok(er) = er {
             let _ = cache::insert_event(&er).await;
-            /*
-            cache::get_runtime().spawn(async move {
-                cache::insert_event(&er).await.ok();
-            });
-             */
         }
     }
 
@@ -175,11 +170,6 @@ pub async fn process_observer(running: Arc<AtomicBool>) -> Result<(), Box<dyn st
                                 let parsed_procinfo = parser::pi_to_er(&pi, "PROC");
                                 
                                 if let Ok(er) = parsed_procinfo {
-                                    /*
-                                    let _ = cache::get_runtime().spawn(async move {
-                                        cache::insert_event(&er).await.ok();
-                                    });
-                                     */
                                     let _ = cache::insert_event(&er).await.ok();
                                 }
                             },
