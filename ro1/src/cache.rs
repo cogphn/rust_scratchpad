@@ -47,8 +47,6 @@ pub static CACHE_PATH: OnceLock<String> = OnceLock::new();
 
 pub static DISK_DB_CONN: OnceLock<libsql::Connection> = OnceLock::new();
 
-static mut SYNC_OFFSET: i64 = 0;
-
 pub fn get_runtime() -> &'static Runtime {
     TOKIO_RUNTIME.get_or_init(|| {
         Runtime::new().expect("Failed to create Tokio runtime") //TODO: Review
@@ -61,7 +59,6 @@ pub fn get_new_runtime() -> Result<Runtime, std::io::Error> {
 
 pub async fn initialize_cache(cache_path: &str) -> Result<(), libsql::Error> {
     
-    //let db = libsql::Builder::new_local(cache_path).build().await?;
     let db = libsql::Builder::new_local(":memory:").build().await?;
     let conn = db.connect().unwrap();
     conn.execute(CACHE_SCHEMA, ()).await.unwrap();
@@ -83,8 +80,6 @@ pub async fn last_write() -> Result<(), Box<dyn std::error::Error>> {
     let insert_query = "INSERT INTO events (ts, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
     let num_persisted_rows_query = "SELECT MAX(id) as maxid FROM events";
-
-    
 
     let persist_conn = match DISK_DB_CONN.get() {
         Some(conn) => conn,
@@ -140,7 +135,6 @@ pub async fn last_write() -> Result<(), Box<dyn std::error::Error>> {
             num_rows +=1;
         }
         tx.commit().await?;
-        //println!("[DBG] num_rows: {}", num_rows);
         if num_rows == 0 {
             break;
         }
@@ -200,8 +194,6 @@ pub fn db_disk_sync(running:Arc<AtomicBool>) -> Result<(), Box<dyn std::error::E
                 .query(select_query, params![batchsize, poffset])
                 .await.unwrap();
             if !results.next().await.unwrap().is_none() {
-                // there are results, allegedly
-                //let mut numrows: i64 = 0;
                 let tx = persist_conn.transaction().await.unwrap();
                 
                 while let Some(row) = results.next().await.unwrap() {
@@ -219,7 +211,6 @@ pub fn db_disk_sync(running:Arc<AtomicBool>) -> Result<(), Box<dyn std::error::E
 
                     let rawevent = row.get::<String>(9).unwrap();
                     let _ = tx.execute(insert_query, (ts, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent)).await;
-                    //numrows += 1;
                 }
                 let _ = tx.commit().await;
             }
