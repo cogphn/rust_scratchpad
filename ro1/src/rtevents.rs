@@ -155,11 +155,13 @@ pub async fn process_observer(running: Arc<AtomicBool>) -> Result<(), Box<dyn st
     // NOTE: Replace with the correct async notification method for your wmi crate version
     let mut process_start_stream = wmi_con.async_raw_notification(new_proc_query)?;
 
-    loop {
-        if running.load(Ordering::SeqCst) == false { // TODO: Fix shutdown delay - seems to only register after another proc event is captured 
-            println!("[*] Stopping process observer ...");
-            break;
-        }
+
+    while running.load(Ordering::SeqCst) == true {
+    //loop {
+    //    if running.load(Ordering::SeqCst) == false { // TODO: Fix shutdown delay - seems to only register after another proc event is captured 
+    //        println!("[*] Stopping process observer ...");
+    //        break;
+    //    }
         match process_start_stream.next().await { //TODO: fix this
             Some(event) => {
                 match event {
