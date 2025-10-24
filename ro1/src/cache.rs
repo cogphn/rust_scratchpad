@@ -47,8 +47,6 @@ pub static CACHE_PATH: OnceLock<String> = OnceLock::new();
 
 pub static DISK_DB_CONN: OnceLock<libsql::Connection> = OnceLock::new();
 
-static mut SYNC_OFFSET: i64 = 0;
-
 pub fn get_runtime() -> &'static Runtime {
     TOKIO_RUNTIME.get_or_init(|| {
         Runtime::new().expect("Failed to create Tokio runtime") //TODO: Review
@@ -61,7 +59,6 @@ pub fn get_new_runtime() -> Result<Runtime, std::io::Error> {
 
 pub async fn initialize_cache(cache_path: &str) -> Result<(), libsql::Error> {
     
-    //let db = libsql::Builder::new_local(cache_path).build().await?;
     let db = libsql::Builder::new_local(":memory:").build().await?;
     let conn = db.connect().unwrap();
     conn.execute(CACHE_SCHEMA, ()).await.unwrap();
@@ -76,15 +73,13 @@ pub async fn initialize_cache(cache_path: &str) -> Result<(), libsql::Error> {
 
 pub async fn last_write() -> Result<(), Box<dyn std::error::Error>> {
     let select_query = r#"
-    SELECT ts, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent
+    SELECT ts, ts_type,  src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent
     FROM events LIMIT ?1
     OFFSET ?2
     "#;
-    let insert_query = "INSERT INTO events (ts, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+    let insert_query = "INSERT INTO events (ts, ts_type,  src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
     let num_persisted_rows_query = "SELECT MAX(id) as maxid FROM events";
-
-    
 
     let persist_conn = match DISK_DB_CONN.get() {
         Some(conn) => conn,
@@ -124,23 +119,23 @@ pub async fn last_write() -> Result<(), Box<dyn std::error::Error>> {
         let mut num_rows: i64 = 0;
         while let Some(row) = results.next().await? {
             let ts = row.get::<String>(0).unwrap();
-            let src = row.get::<String>(1).unwrap();
-            let host = row.get::<String>(2).unwrap();
-            let context1 = row.get::<String>(3).unwrap();
-            let context1_attrib = row.get::<String>(4).unwrap();
+            let ts_type = row.get::<String>(1).unwrap();
+            let src = row.get::<String>(2).unwrap();
+            let host = row.get::<String>(3).unwrap();
+            let context1 = row.get::<String>(4).unwrap();
+            let context1_attrib = row.get::<String>(5).unwrap();
 
-            let context2 = row.get::<String>(5).unwrap();
-            let context2_attrib = row.get::<String>(6).unwrap();
+            let context2 = row.get::<String>(6).unwrap();
+            let context2_attrib = row.get::<String>(7).unwrap();
 
-            let context3 = row.get::<String>(7).unwrap();
-            let context3_attrib = row.get::<String>(8).unwrap();
+            let context3 = row.get::<String>(8).unwrap();
+            let context3_attrib = row.get::<String>(9).unwrap();
 
-            let rawevent = row.get::<String>(9).unwrap();
-            tx.execute(insert_query, (ts, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent)).await?;
+            let rawevent = row.get::<String>(10).unwrap();
+            tx.execute(insert_query, (ts, ts_type, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent)).await?;
             num_rows +=1;
         }
         tx.commit().await?;
-        //println!("[DBG] num_rows: {}", num_rows);
         if num_rows == 0 {
             break;
         }
@@ -155,11 +150,11 @@ pub async fn last_write() -> Result<(), Box<dyn std::error::Error>> {
 pub fn db_disk_sync(running:Arc<AtomicBool>) -> Result<(), Box<dyn std::error::Error>> {
 
     let select_query = r#"
-    SELECT ts, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent
+    SELECT ts, ts_type, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent
     FROM events LIMIT ?1
     OFFSET ?2
     "#;
-    let insert_query = "INSERT INTO events (ts, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+    let insert_query = "INSERT INTO events (ts, ts_type, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
     let num_persisted_rows_query = "SELECT MAX(id) as maxid FROM events";
 
@@ -200,26 +195,24 @@ pub fn db_disk_sync(running:Arc<AtomicBool>) -> Result<(), Box<dyn std::error::E
                 .query(select_query, params![batchsize, poffset])
                 .await.unwrap();
             if !results.next().await.unwrap().is_none() {
-                // there are results, allegedly
-                //let mut numrows: i64 = 0;
                 let tx = persist_conn.transaction().await.unwrap();
                 
                 while let Some(row) = results.next().await.unwrap() {
                     let ts = row.get::<String>(0).unwrap();
-                    let src = row.get::<String>(1).unwrap();
-                    let host = row.get::<String>(2).unwrap();
-                    let context1 = row.get::<String>(3).unwrap();
-                    let context1_attrib = row.get::<String>(4).unwrap();
+                    let ts_type = row.get::<String>(1).unwrap();
+                    let src = row.get::<String>(2).unwrap();
+                    let host = row.get::<String>(3).unwrap();
+                    let context1 = row.get::<String>(4).unwrap();
+                    let context1_attrib = row.get::<String>(5).unwrap();
 
-                    let context2 = row.get::<String>(5).unwrap();
-                    let context2_attrib = row.get::<String>(6).unwrap();
+                    let context2 = row.get::<String>(6).unwrap();
+                    let context2_attrib = row.get::<String>(7).unwrap();
 
-                    let context3 = row.get::<String>(7).unwrap();
-                    let context3_attrib = row.get::<String>(8).unwrap();
+                    let context3 = row.get::<String>(8).unwrap();
+                    let context3_attrib = row.get::<String>(9).unwrap();
 
-                    let rawevent = row.get::<String>(9).unwrap();
-                    let _ = tx.execute(insert_query, (ts, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent)).await;
-                    //numrows += 1;
+                    let rawevent = row.get::<String>(10).unwrap();
+                    let _ = tx.execute(insert_query, (ts, ts_type, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent)).await;
                 }
                 let _ = tx.commit().await;
             }
@@ -227,7 +220,7 @@ pub fn db_disk_sync(running:Arc<AtomicBool>) -> Result<(), Box<dyn std::error::E
 
     } //while loop
 
-    println!("[!] stopping dbsync");
+    //println!("[!] stopping dbsync");
 
     Ok(())
 
