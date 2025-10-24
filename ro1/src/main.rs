@@ -18,9 +18,6 @@ pub mod snapshot;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    
-
-
 
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
@@ -63,6 +60,8 @@ async fn main() -> Result<()> {
     let etw_handle = thread::spawn(||{
         rtevents::etw_observer(rc_etwevents);
     });
+
+    // DBsync start
     let dbsync_handle = thread::spawn(||{
         let _ = cache::db_disk_sync(rc_dbsync);
     });
