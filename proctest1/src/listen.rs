@@ -39,7 +39,7 @@ async fn main() -> ExitCode {
         }
     };
 
-    let cc = tokio::signal::ctrl_c();
+    //let cc = tokio::signal::ctrl_c();
     println!("  [*] entering loop...");
 
     loop {
@@ -69,7 +69,7 @@ async fn main() -> ExitCode {
                 println!("  [*] ctrl+c received... exiting...");
                 break;
             }
-        }    
+        }  
     }
 
 

@@ -67,7 +67,9 @@ async fn main() -> Result<()> {
     });
     
     // process observer 
-    let _ = rtevents::process_observer(rc_rtevents).await;
+    //let _ = rtevents::process_observer(rc_rtevents).await;
+    println!("[*] Running; press ctrl+c twice to exit");
+    let _ = rtevents::process_observer2().await;
     
     
     while running.load(Ordering::SeqCst) {
