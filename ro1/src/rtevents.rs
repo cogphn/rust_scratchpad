@@ -138,11 +138,6 @@ pub async fn write_services_to_cache() -> Result<(), Box<dyn std::error::Error>>
         let er = parser::service_to_er(sl);
         if let Ok(er) = er {
             let _ = cache::insert_event(&er).await;
-            /*
-            cache::get_runtime().spawn(async move {
-                cache::insert_event(&er).await.ok();
-            });
-             */
         }
     }
 
@@ -151,37 +146,50 @@ pub async fn write_services_to_cache() -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
-/*
-pub fn get_process_list() -> Result<Vec<ProcessInfo>, Box<dyn std::error::Error>> {
+pub fn process_observer2() -> Result<(), Box<dyn std::error::Error>> {
+    println!("[*] Monitoring for new process creation...");
     let com_lib = COMLibrary::new()?;
     let wmi_con = WMIConnection::new(com_lib)?;
-    let processes: Vec<Process> = wmi_con.query()?;
-    let process_infos: Vec<ProcessInfo> = processes
-        .into_iter()
-        .map(|p| { 
-            let cd_ts = p.creation_date.unwrap_or("1970-01-01T00:00:00".to_string());
+    let new_proc_query = "SELECT * FROM Win32_ProcessStartTrace";
+    let mut process_start_stream = wmi_con.async_raw_notification(new_proc_query)?;
 
-            ProcessInfo { 
-                process_id: p.process_id,
-                hostname: get_hostname(),
-                name: p.name,
-                executable_path: p.executable_path.unwrap_or_default(),
-                command_line: p.command_line.unwrap_or_default(),
-                parent_process_id: p.parent_process_id.unwrap_or(0 as u32),
-                creation_date: parser::convert_wmi_datetime_to_datetime(&cd_ts).expect("1970-01-01T00:00:00"),
-                creation_date_utc: parser::convert_wmi_datetime_to_datetime(&cd_ts).expect("1970-01-01T00:00:00"),
-                description: p.description.unwrap_or_default(),
-                handle: p.handle.unwrap_or_default(),
-                handle_count: p.handle_count.unwrap_or_default(),
-                os_name: p.os_name.unwrap_or_default(),
-                windows_version: p.windows_version.unwrap_or_default(), 
-                session_id: p.session_id.unwrap_or_default()
+    let rt = tokio::runtime::Runtime::new()?;
+
+    rt.block_on(async {
+        loop{
+            tokio::select! {
+                newproc = process_start_stream.next() => {
+                    match newproc {
+                        Some(Ok(process)) => {
+                            let _newproc = match parser::proc_hm_to_pi(&process, "Win32_ProcessStartTrace") {
+                                Ok(pi) => {
+                                    println!("{}",serde_json::to_string(&pi).unwrap());    
+                                    let parsed_procinfo = parser::pi_to_er(&pi, "PROC");
+                                    if let Ok(er) = parsed_procinfo {
+                                        let _ = cache::insert_event(&er).await.ok();
+                                    }
+                                },
+                                Err(e) => {
+                                    eprintln!(" [!] Error parsing process details: {:?}", e);                                
+                                }
+                            };
+                        },
+                        Some(Err(_e)) => {},
+                        None => {}
+                    };
+                }
+                _ = tokio::signal::ctrl_c() => {
+                    println!("   [DBG] ctrl+c receivled - shutting down process obsever");
+                    break;
+                }
             }
-        }).collect();
+        }
+    });
     
-    return Ok(process_infos);
+    println!("[DBG - rtevents::process_observer2] - returning");
+    Ok(())
 }
-*/
+
 
 pub async fn process_observer(running: Arc<AtomicBool>) -> Result<(), Box<dyn std::error::Error>> {
     println!("[*] Monitoring for new process creation...\n");
@@ -192,11 +200,13 @@ pub async fn process_observer(running: Arc<AtomicBool>) -> Result<(), Box<dyn st
     // NOTE: Replace with the correct async notification method for your wmi crate version
     let mut process_start_stream = wmi_con.async_raw_notification(new_proc_query)?;
 
-    loop {
-        if running.load(Ordering::SeqCst) == false { // TODO: Fix shutdown delay - seems to only register after another proc event is captured 
-            println!("[*] Stopping process observer ...");
-            break;
-        }
+
+    while running.load(Ordering::SeqCst) == true {
+    //loop {
+    //    if running.load(Ordering::SeqCst) == false { // TODO: Fix shutdown delay - seems to only register after another proc event is captured 
+    //        println!("[*] Stopping process observer ...");
+    //        break;
+    //    }
         match process_start_stream.next().await { //TODO: fix this
             Some(event) => {
                 match event {
@@ -207,11 +217,6 @@ pub async fn process_observer(running: Arc<AtomicBool>) -> Result<(), Box<dyn st
                                 let parsed_procinfo = parser::pi_to_er(&pi, "PROC");
                                 
                                 if let Ok(er) = parsed_procinfo {
-                                    /*
-                                    let _ = cache::get_runtime().spawn(async move {
-                                        cache::insert_event(&er).await.ok();
-                                    });
-                                     */
                                     let _ = cache::insert_event(&er).await.ok();
                                 }
                             },

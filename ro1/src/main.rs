@@ -3,7 +3,6 @@ use windows::{
     Win32::{System::EventLog::*},
 };
 
-//use std::{rc, sync::atomic::{AtomicBool, Ordering}};
 use std::{sync::atomic::{AtomicBool, Ordering}};
 use std::sync::Arc;
 use std::thread;
@@ -19,9 +18,6 @@ pub mod snapshot;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    
-
-
 
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
@@ -42,26 +38,8 @@ async fn main() -> Result<()> {
         wels::ElogChannel {channel_name: "System".to_string(), query: "*".to_string()},
         wels::ElogChannel {channel_name: "Security".to_string(), query: "*".to_string()}
     ];
-    
-    /*
-    println!("[*] collecting volatile data (processlist)...");
-    let _ = rtevents::write_proclist_to_cache().await;
-    */
-
-    /*
-    println!("[*] collecting volatile data (netconns)...");
-    let netconns_dump = thread::spawn(||{
-        rtevents::write_netconns_to_cache();
-    });
-    */
-    /*
-    println!("[*] dumping windows services...");
-    let winsvc_dump = thread::spawn(|| {
-        rtevents::write_services_to_cache();
-    });
-    */
-    
-    println!("[*] Subscribing to Windows Event Logs...");
+        
+    println!("  [*] Subscribing to Windows Event Logs...");
     let mut sub_handles = Vec::new();
     for c in elog_scope {
         let h = wels::get_evt_sub_handle(&c.channel_name, &c.query);
@@ -71,31 +49,33 @@ async fn main() -> Result<()> {
         }
         sub_handles.push(h);
     }
-    println!("[*] collecting volatile data (netconns)...");
+    println!("  [*] collecting volatile data (netconns)...");
     let _ = rtevents::write_netconns_to_cache().await;
-    println!("[*] collecting volatile data (processlist)...");
+    println!("  [*] collecting volatile data (processlist)...");
     let _ = rtevents::write_proclist_to_cache().await;
-    println!("[*] dumping windows services...");
+    println!("  [*] dumping windows services...");
     let _ = rtevents::write_services_to_cache().await;
-
-    
-    //let db_disk_sync = cache::db_disk_sync(rc_dbsync);
-    //let db_sync_handle = tokio::spawn(db_disk_sync);
-    
-
-    //let dbsync = tokio::task::spawn(cache::db_disk_sync(rc_dbsync));
-
 
     // ETW listener startup    
     let etw_handle = thread::spawn(||{
         rtevents::etw_observer(rc_etwevents);
     });
+
+    // DBsync start
     let dbsync_handle = thread::spawn(||{
         let _ = cache::db_disk_sync(rc_dbsync);
     });
+
+    let procobs_handle = thread::spawn(||{
+        let _ = rtevents::process_observer2();
+    });
     
     // process observer 
-    let _ = rtevents::process_observer(rc_rtevents).await;
+    //let _ = rtevents::process_observer(rc_rtevents).await;
+    println!("\n");
+    println!("[*] Running; press ctrl+c twice to exit");
+    println!("\n");
+    //let _ = rtevents::process_observer2().await;
     
     
     while running.load(Ordering::SeqCst) {
@@ -108,6 +88,7 @@ async fn main() -> Result<()> {
         }
         let _ = etw_handle.join();
         let _ = dbsync_handle.join();
+        let _ = procobs_handle.join();
     }
 
     let _  = cache::last_write().await;
