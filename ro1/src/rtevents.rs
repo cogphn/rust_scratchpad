@@ -174,7 +174,7 @@ pub fn process_observer2() -> Result<(), Box<dyn std::error::Error>> {
                                 }
                             };
                         },
-                        Some(Err(e)) => {},
+                        Some(Err(_e)) => {},
                         None => {}
                     };
                 }
