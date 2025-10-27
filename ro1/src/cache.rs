@@ -57,7 +57,27 @@ pub fn get_new_runtime() -> Result<Runtime, std::io::Error> {
     return Runtime::new();
 }
 
-pub async fn initialize_cache(cache_path: &str) -> Result<(), libsql::Error> {
+pub async fn get_diskdb_num_rows() -> Result<i64, libsql::Error> {
+    let persist_conn = match DISK_DB_CONN.get() {
+        Some(conn) => conn,
+        None => {
+            return Err(libsql::Error::ConnectionFailed("[!] could not get connection for persistent cache DB".into()));
+        }
+        
+    };
+
+    let num_persisted_rows_query = "SELECT MAX(id) as maxid FROM events"; 
+    let mut num_persisted_rows = persist_conn.query(num_persisted_rows_query, ()).await?;
+
+    let mr_row = num_persisted_rows.next().await.unwrap().unwrap();
+    let current_offset = match mr_row.get::<i64>(0) {
+        Ok(val) => val,
+        Err(_) => 0
+    };
+    Ok(current_offset)
+}
+
+pub async fn initialize_cache(cache_path: &str) -> Result<i64, libsql::Error> {
     
     let db = libsql::Builder::new_local(":memory:").build().await?;
     let conn = db.connect().unwrap();
@@ -67,12 +87,15 @@ pub async fn initialize_cache(cache_path: &str) -> Result<(), libsql::Error> {
     // TODO: Check if db exists and get number of rows 
     let disk_db: libsql::Database = libsql::Builder::new_local(cache_path).build().await?;
     let disk_conn = disk_db.connect().unwrap();
+
     disk_conn.execute(CACHE_SCHEMA, ()).await.unwrap();
     DISK_DB_CONN.set(disk_conn).map_err(|_| libsql::Error::ConnectionFailed(" [!] cache already initialized".into()))?;
-    Ok(())
+    let num_disk_rows = get_diskdb_num_rows().await?;
+
+    Ok(num_disk_rows)
 }
 
-pub async fn last_write() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn last_write(num_initial_rows: i64) -> Result<(), Box<dyn std::error::Error>> {
     let select_query = r#"
     SELECT ts, ts_type,  src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent
     FROM events LIMIT ?1
@@ -80,7 +103,7 @@ pub async fn last_write() -> Result<(), Box<dyn std::error::Error>> {
     "#;
     let insert_query = "INSERT INTO events (ts, ts_type,  src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
-    let num_persisted_rows_query = "SELECT MAX(id) as maxid FROM events"; //this is wrong if persistent DB existed from previous run
+    let num_persisted_rows_query = "SELECT MAX(id) as maxid FROM events"; 
 
     let persist_conn = match DISK_DB_CONN.get() {
         Some(conn) => conn,
@@ -99,7 +122,7 @@ pub async fn last_write() -> Result<(), Box<dyn std::error::Error>> {
     let mut mr_rows = persist_conn.query(num_persisted_rows_query, ()).await.unwrap();
     let mr_row = mr_rows.next().await.unwrap().unwrap();
     let mut current_offset = match mr_row.get::<i64>(0) {
-        Ok(val) => val,
+        Ok(val) => val - num_initial_rows,
         Err(_) => 0
     };
 
@@ -107,7 +130,7 @@ pub async fn last_write() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    println!("[DBG - cache::last_write]  current offset: {}", current_offset);
+    println!("[DBG - cache::last_write]  current offset: {}, initial_rows: {}", current_offset, num_initial_rows);
     let batchsize: i64 = 1000;
 
     loop {
@@ -148,7 +171,7 @@ pub async fn last_write() -> Result<(), Box<dyn std::error::Error>> {
 
 }
 
-pub fn db_disk_sync(running:Arc<AtomicBool>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn db_disk_sync(running:Arc<AtomicBool>, num_initial_rows: i64) -> Result<(), Box<dyn std::error::Error>> {
 
     let select_query = r#"
     SELECT ts, ts_type, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent
@@ -186,11 +209,11 @@ pub fn db_disk_sync(running:Arc<AtomicBool>) -> Result<(), Box<dyn std::error::E
             let mut mid_rows = persist_conn.query(num_persisted_rows_query, ()).await.unwrap();
             let mid_row = mid_rows.next().await.unwrap().unwrap();
             let poffset = match mid_row.get::<i64>(0) { 
-                Ok(val) => val,
+                Ok(val) => val - num_initial_rows,
                 Err(_) => 0
             };
 
-            //println!("[DBG - cache::db_disk_sync]; offset: {}", poffset);
+            println!("[DBG - cache::db_disk_sync]; offset: {}, initial_rows: {}", poffset, num_initial_rows);
 
             let mut results = c
                 .query(select_query, params![batchsize, poffset])
