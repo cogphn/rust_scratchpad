@@ -21,11 +21,13 @@ async fn main() -> Result<()> {
 
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
-    let rc_rtevents = running.clone();
+    //let rc_rtevents = running.clone();
     let rc_etwevents = running.clone();
     let rc_dbsync = running.clone();
 
-    cache::initialize_cache("cache.db").await.expect(" [!] failed to initialize cache");
+    let num_initial_rows = cache::initialize_cache("cache.db").await.expect(" [!] failed to initialize cache");
+    let nir = num_initial_rows;
+
 
     ctrlc::set_handler(move || {
         r.store(false, Ordering::SeqCst);        
@@ -62,10 +64,13 @@ async fn main() -> Result<()> {
     });
 
     // DBsync start
-    let dbsync_handle = thread::spawn(||{
-        let _ = cache::db_disk_sync(rc_dbsync);
+    println!("[DBG - main] initial rows: {}", num_initial_rows);
+    let dbsync_handle = thread::spawn( move||{
+        let nir = num_initial_rows;
+        let _ = cache::db_disk_sync(rc_dbsync, nir);
     });
 
+    //process observer 
     let procobs_handle = thread::spawn(||{
         let _ = rtevents::process_observer2();
     });
@@ -73,7 +78,7 @@ async fn main() -> Result<()> {
     // process observer 
     //let _ = rtevents::process_observer(rc_rtevents).await;
     println!("\n");
-    println!("[*] Running; press ctrl+c twice to exit");
+    println!("[*] Running! Now listening for events; press ctrl+c twice to exit");
     println!("\n");
     //let _ = rtevents::process_observer2().await;
     
@@ -91,7 +96,7 @@ async fn main() -> Result<()> {
         let _ = procobs_handle.join();
     }
 
-    let _  = cache::last_write().await;
+    let _  = cache::last_write(nir).await;
 
     println!("[.] Done.");
     
