@@ -147,7 +147,7 @@ pub async fn write_services_to_cache() -> Result<(), Box<dyn std::error::Error>>
 }
 
 pub fn process_observer2() -> Result<(), Box<dyn std::error::Error>> {
-    println!("[*] Monitoring for new process creation...");
+    //println!("[*] Monitoring for new process creation...");
     let com_lib = COMLibrary::new()?;
     let wmi_con = WMIConnection::new(com_lib)?;
     let new_proc_query = "SELECT * FROM Win32_ProcessStartTrace";
@@ -163,7 +163,7 @@ pub fn process_observer2() -> Result<(), Box<dyn std::error::Error>> {
                         Some(Ok(process)) => {
                             let _newproc = match parser::proc_hm_to_pi(&process, "Win32_ProcessStartTrace") {
                                 Ok(pi) => {
-                                    println!("{}",serde_json::to_string(&pi).unwrap());    
+                                    //println!("{}",serde_json::to_string(&pi).unwrap());    
                                     let parsed_procinfo = parser::pi_to_er(&pi, "PROC");
                                     if let Ok(er) = parsed_procinfo {
                                         let _ = cache::insert_event(&er).await.ok();
@@ -180,13 +180,14 @@ pub fn process_observer2() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 _ = tokio::signal::ctrl_c() => {
                     println!("   [DBG] ctrl+c receivled - shutting down process obsever");
+                    println!("   [!] press ctrl+c again to exit");
                     break;
                 }
             }
         }
     });
     
-    println!("[DBG - rtevents::process_observer2] - returning");
+    //println!("[DBG - rtevents::process_observer2] - returning");
     Ok(())
 }
 

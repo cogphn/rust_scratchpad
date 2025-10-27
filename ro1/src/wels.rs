@@ -58,15 +58,8 @@ pub unsafe extern "system" fn event_callback(
 
             let jstr_parsed = parser::wel_json_to_er(&jstr.as_ref().unwrap_or(&"".to_string()));
             if let Ok(er) = jstr_parsed {                
-                println!("{:?}", er); // DEBUG
+                //println!("{:?}", er); // DEBUG
 
-                /*
-                cache::get_runtime().spawn(async move {
-                    cache::insert_event(&er).await.ok();
-                });
-                 */
-                
-                
                 cache::get_new_runtime().expect("[!] cannot get cache runtime").spawn(async move {
                     cache::insert_event(&er).await.ok();
                 });

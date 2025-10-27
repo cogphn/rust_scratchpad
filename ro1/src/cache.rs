@@ -64,6 +64,7 @@ pub async fn initialize_cache(cache_path: &str) -> Result<(), libsql::Error> {
     conn.execute(CACHE_SCHEMA, ()).await.unwrap();
     CACHE_CONN.set(conn).map_err(|_| libsql::Error::ConnectionFailed(" [!] cache already initialized".into()))?;
 
+    // TODO: Check if db exists and get number of rows 
     let disk_db: libsql::Database = libsql::Builder::new_local(cache_path).build().await?;
     let disk_conn = disk_db.connect().unwrap();
     disk_conn.execute(CACHE_SCHEMA, ()).await.unwrap();
@@ -79,7 +80,7 @@ pub async fn last_write() -> Result<(), Box<dyn std::error::Error>> {
     "#;
     let insert_query = "INSERT INTO events (ts, ts_type,  src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
-    let num_persisted_rows_query = "SELECT MAX(id) as maxid FROM events";
+    let num_persisted_rows_query = "SELECT MAX(id) as maxid FROM events"; //this is wrong if persistent DB existed from previous run
 
     let persist_conn = match DISK_DB_CONN.get() {
         Some(conn) => conn,
@@ -189,7 +190,7 @@ pub fn db_disk_sync(running:Arc<AtomicBool>) -> Result<(), Box<dyn std::error::E
                 Err(_) => 0
             };
 
-            println!("[DBG - cache::db_disk_sync]; offset: {}", poffset);
+            //println!("[DBG - cache::db_disk_sync]; offset: {}", poffset);
 
             let mut results = c
                 .query(select_query, params![batchsize, poffset])
