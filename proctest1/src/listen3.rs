@@ -10,6 +10,7 @@ use serde::Serialize;
 use serde::Deserialize;
 use std::thread;
 
+/*
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename = "Win32_Process")] 
 #[serde(rename_all = "PascalCase")]
@@ -27,7 +28,7 @@ pub struct Process {
     pub windows_version : Option<String>,
     pub session_id : Option<u32>
 }
-
+ */
 
 fn process_observer(mut stop_rx: mpsc::Receiver<()>, done_tx: oneshot::Sender<()>) -> Result<(), Box<dyn std::error::Error>> {
     let com_lib = match COMLibrary::new(){
@@ -67,7 +68,7 @@ fn process_observer(mut stop_rx: mpsc::Receiver<()>, done_tx: oneshot::Sender<()
                 newproc = process_start_stream.next() => {
                     match newproc {
                         Some(Ok(process)) => {
-                            println!("{:?}", process);
+                            println!("Process[ {:?} ]", process );
                         },
                         Some(Err(e)) => {
                             println!(" [!] Error: {:?}", e);
@@ -79,10 +80,10 @@ fn process_observer(mut stop_rx: mpsc::Receiver<()>, done_tx: oneshot::Sender<()
                     
                 }
 
-                //_ = signal::ctrl_c() => {
-                //    println!("  [*] ctrl+c received... exiting...");
-                //    break;
-                //}
+                _ = signal::ctrl_c() => {
+                    println!("  [*] ctrl+c received... exiting...");
+                    break;
+                }
                 _ = stop_rx.recv() => {
                     println!(" [!] stop signal received...exiting");
                     break;
@@ -90,6 +91,7 @@ fn process_observer(mut stop_rx: mpsc::Receiver<()>, done_tx: oneshot::Sender<()
             }  
         }
     });
+    let _ = done_tx.send(());
     println!("  [*][process_observer] exiting! (gracefully!)");
     Ok(())
 }
@@ -112,7 +114,9 @@ async fn main() -> ExitCode {
     thread::sleep(naptime);
     println!("  [*][main] sending stop message");
     let _ = stop_tx.send(());
+    println!("  [*][main] sent stop message... did it work?");
     procobs_handle.join().unwrap();
+    println!("{:?}", done_rx);
     println!("  [*][main] just called join...");
     println!("[.] Done!");
 
