@@ -63,6 +63,8 @@ fn process_observer(mut stop_rx: mpsc::Receiver<()>, done_tx: oneshot::Sender<()
     rt.block_on(async {
 
         loop {
+            
+            println!("[DBG][process_observer] {:?}", stop_rx);
             tokio::select! {
 
                 newproc = process_start_stream.next() => {
@@ -113,6 +115,9 @@ async fn main() -> ExitCode {
     println!("  [*][main] sleeping for a little bit...");
     thread::sleep(naptime);
     println!("  [*][main] sending stop message");
+    //let cc = tokio::signal::ctrl_c().await;
+    //let _ = stop_tx.send(cc.expect("WELL THAT DIDN'T WORK"));
+
     let _ = stop_tx.send(());
     println!("  [*][main] sent stop message... did it work?");
     procobs_handle.join().unwrap();
