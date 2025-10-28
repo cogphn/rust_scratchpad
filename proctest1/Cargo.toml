@@ -5,9 +5,19 @@ edition = "2024"
 
 [dependencies]
 futures = "0.3.31"
+serde = { version = "1.0.228", features = ["derive"] }
 tokio = { version = "1.48.0", features=["full", "signal"] }
 wmi = "0.17.3"
 
 [[bin]]
 name = "listen"
 path ="src/listen.rs"
+
+[[bin]]
+name = "listen2"
+path ="src/listen2.rs"
+
+
+[[bin]]
+name = "listen3"
+path ="src/listen3.rs"
