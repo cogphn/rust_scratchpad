@@ -33,7 +33,7 @@ fn process_observer(mut stop_rx: mpsc::Receiver<()>, done_tx: oneshot::Sender<()
     let com_lib = match COMLibrary::new(){
         Ok(cl) => cl,
         Err(e) => {
-            eprintln!("  [!] failed to initiate com library: {}", e);
+            eprintln!("  [!][process_observer] failed to initiate com library: {}", e);
             return Err(Box::new(e));
         }
     };
@@ -41,7 +41,7 @@ fn process_observer(mut stop_rx: mpsc::Receiver<()>, done_tx: oneshot::Sender<()
     let wmi_con = match WMIConnection::new(com_lib) {
         Ok(wc) => wc,
         Err(e) => {
-            eprintln!("   [!] failed to initiate wmi connection: {}", e);
+            eprintln!("   [!][process_observer] failed to initiate wmi connection: {}", e);
             return Err(Box::new(e));
         }
     };
@@ -51,12 +51,12 @@ fn process_observer(mut stop_rx: mpsc::Receiver<()>, done_tx: oneshot::Sender<()
     let mut process_start_stream = match wmi_con.async_raw_notification::<HashMap<String, Variant>>(new_proc_query) {
         Ok(stream) => stream,
         Err(e) => {
-            eprintln!("    [!] error creating wmi event stream: {}", e);
+            eprintln!("    [!][process_observer] error creating wmi event stream: {}", e);
             return Err(Box::new(e));
         }
     };
 
-    println!("  [*] entering loop...");
+    println!("  [*][process_observer] entering loop...");
     let rt = tokio::runtime::Runtime::new()?;
 
     rt.block_on(async {
@@ -90,7 +90,7 @@ fn process_observer(mut stop_rx: mpsc::Receiver<()>, done_tx: oneshot::Sender<()
             }  
         }
     });
-
+    println!("  [*][process_observer] exiting! (gracefully!)");
     Ok(())
 }
 
@@ -106,11 +106,14 @@ async fn main() -> ExitCode {
     let procobs_handle = thread::spawn(||{
         let _ = process_observer(stop_rx, done_tx);
     });
-
+    println!(" [!][main] running ...");
+    let naptime = std::time::Duration::from_secs(10);
+    println!("  [*][main] sleeping for a little bit...");
+    thread::sleep(naptime);
+    println!("  [*][main] sending stop message");
     let _ = stop_tx.send(());
-
-    let _ = procobs_handle.join();
-
+    procobs_handle.join().unwrap();
+    println!("  [*][main] just called join...");
     println!("[.] Done!");
 
     ExitCode::SUCCESS
