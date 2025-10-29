@@ -11,8 +11,11 @@ use std::sync::OnceLock;
 use super::parser;
 use super::cache;
 use super::snapshot;
+use tokio::sync::{mpsc};
 
 pub mod etwevents;
+
+pub struct StopSignal;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename = "Win32_Process")] 
@@ -146,8 +149,9 @@ pub async fn write_services_to_cache() -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
-pub fn process_observer2() -> Result<(), Box<dyn std::error::Error>> {
-    //println!("[*] Monitoring for new process creation...");
+
+pub fn process_observer(mut stop_rx: mpsc::Receiver<StopSignal>) -> Result<(), Box<dyn std::error::Error>> {
+
     let com_lib = COMLibrary::new()?;
     let wmi_con = WMIConnection::new(com_lib)?;
     let new_proc_query = "SELECT * FROM Win32_ProcessStartTrace";
@@ -156,14 +160,13 @@ pub fn process_observer2() -> Result<(), Box<dyn std::error::Error>> {
     let rt = tokio::runtime::Runtime::new()?;
 
     rt.block_on(async {
-        loop{
+        loop {
             tokio::select! {
                 newproc = process_start_stream.next() => {
                     match newproc {
                         Some(Ok(process)) => {
                             let _newproc = match parser::proc_hm_to_pi(&process, "Win32_ProcessStartTrace") {
                                 Ok(pi) => {
-                                    //println!("{}",serde_json::to_string(&pi).unwrap());    
                                     let parsed_procinfo = parser::pi_to_er(&pi, "PROC");
                                     if let Ok(er) = parsed_procinfo {
                                         let _ = cache::insert_event(&er).await.ok();
@@ -178,62 +181,14 @@ pub fn process_observer2() -> Result<(), Box<dyn std::error::Error>> {
                         None => {}
                     };
                 }
-                _ = tokio::signal::ctrl_c() => {
-                    println!("   [DBG] ctrl+c receivled - shutting down process obsever");
-                    println!("   [!] press ctrl+c again to exit");
+                _ = stop_rx.recv() => {
+                    println!("   [*] shutting down process obsever");
                     break;
                 }
             }
         }
     });
-    
-    //println!("[DBG - rtevents::process_observer2] - returning");
-    Ok(())
-}
 
-
-pub async fn process_observer(running: Arc<AtomicBool>) -> Result<(), Box<dyn std::error::Error>> {
-    println!("[*] Monitoring for new process creation...\n");
-    let com_lib = COMLibrary::new()?;
-    let wmi_con = WMIConnection::new(com_lib)?;
-    let new_proc_query = "SELECT * FROM Win32_ProcessStartTrace";
-
-    // NOTE: Replace with the correct async notification method for your wmi crate version
-    let mut process_start_stream = wmi_con.async_raw_notification(new_proc_query)?;
-
-
-    while running.load(Ordering::SeqCst) == true {
-    //loop {
-    //    if running.load(Ordering::SeqCst) == false { // TODO: Fix shutdown delay - seems to only register after another proc event is captured 
-    //        println!("[*] Stopping process observer ...");
-    //        break;
-    //    }
-        match process_start_stream.next().await { //TODO: fix this
-            Some(event) => {
-                match event {
-                    Ok(process) => {                        
-                        let _newproc = match parser::proc_hm_to_pi(&process, "Win32_ProcessStartTrace") {
-                            Ok(pi) => {
-                                println!("{}",serde_json::to_string(&pi).unwrap());    
-                                let parsed_procinfo = parser::pi_to_er(&pi, "PROC");
-                                
-                                if let Ok(er) = parsed_procinfo {
-                                    let _ = cache::insert_event(&er).await.ok();
-                                }
-                            },
-                            Err(e) => {
-                                eprintln!(" [!] Error parsing process details: {:?}", e);                                
-                            }
-                        };
-                    }
-                    Err(e) => eprintln!("Error receiving event: {:?}", e),
-                }
-            }
-            None => {
-                break;
-            }
-        }
-    }
     Ok(())
 }
 
