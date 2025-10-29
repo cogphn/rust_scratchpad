@@ -6,6 +6,10 @@ use windows::{
 use std::{sync::atomic::{AtomicBool, Ordering}};
 use std::sync::Arc;
 use std::thread;
+use tokio::sync::{mpsc};
+
+use crate::rtevents::StopSignal;
+
 pub mod rtevents;
 pub mod wels;
 
@@ -24,6 +28,8 @@ async fn main() -> Result<()> {
     //let rc_rtevents = running.clone();
     let rc_etwevents = running.clone();
     let rc_dbsync = running.clone();
+    let (stop_tx, stop_rx) = mpsc::channel::<rtevents::StopSignal>(1);
+
 
     let num_initial_rows = cache::initialize_cache("cache.db").await.expect(" [!] failed to initialize cache");
     let nir = num_initial_rows;
@@ -72,21 +78,19 @@ async fn main() -> Result<()> {
 
     //process observer 
     let procobs_handle = thread::spawn(||{
-        let _ = rtevents::process_observer2();
+        let _ = rtevents::process_observer3(stop_rx);
     });
     
     // process observer 
-    //let _ = rtevents::process_observer(rc_rtevents).await;
     println!("\n");
-    println!("[*] Running! Now listening for events; press ctrl+c twice to exit");
+    println!("[*] Running! Now listening for events; press ctrl+c to exit");
     println!("\n");
-    //let _ = rtevents::process_observer2().await;
     
     
     while running.load(Ordering::SeqCst) {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
-    
+    let _ = stop_tx.send(StopSignal).await;
     unsafe {        
         for h in sub_handles {
             let _ = EvtClose(h?);

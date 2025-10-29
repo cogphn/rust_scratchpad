@@ -62,7 +62,7 @@ fn process_observer(mut stop_rx: mpsc::Receiver<StopSignal>) -> Result<(), Box<d
                     
                 }
 
-                recv =  stop_rx.recv() => {
+                _ =  stop_rx.recv() => {
                     println!(" [!] stop signal received!");
                     break;
                 }

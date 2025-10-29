@@ -11,8 +11,11 @@ use std::sync::OnceLock;
 use super::parser;
 use super::cache;
 use super::snapshot;
+use tokio::sync::{mpsc};
 
 pub mod etwevents;
+
+pub struct StopSignal;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename = "Win32_Process")] 
@@ -142,6 +145,49 @@ pub async fn write_services_to_cache() -> Result<(), Box<dyn std::error::Error>>
     }
 
     
+
+    Ok(())
+}
+
+
+pub fn process_observer3(mut stop_rx: mpsc::Receiver<StopSignal>) -> Result<(), Box<dyn std::error::Error>> {
+
+    let com_lib = COMLibrary::new()?;
+    let wmi_con = WMIConnection::new(com_lib)?;
+    let new_proc_query = "SELECT * FROM Win32_ProcessStartTrace";
+    let mut process_start_stream = wmi_con.async_raw_notification(new_proc_query)?;
+
+    let rt = tokio::runtime::Runtime::new()?;
+
+    rt.block_on(async {
+        loop {
+            tokio::select! {
+                newproc = process_start_stream.next() => {
+                    match newproc {
+                        Some(Ok(process)) => {
+                            let _newproc = match parser::proc_hm_to_pi(&process, "Win32_ProcessStartTrace") {
+                                Ok(pi) => {
+                                    let parsed_procinfo = parser::pi_to_er(&pi, "PROC");
+                                    if let Ok(er) = parsed_procinfo {
+                                        let _ = cache::insert_event(&er).await.ok();
+                                    }
+                                },
+                                Err(e) => {
+                                    eprintln!(" [!] Error parsing process details: {:?}", e);                                
+                                }
+                            };
+                        },
+                        Some(Err(_e)) => {},
+                        None => {}
+                    };
+                }
+                _ = stop_rx.recv() => {
+                    println!("   [*] shutting down process obsever");
+                    break;
+                }
+            }
+        }
+    });
 
     Ok(())
 }
