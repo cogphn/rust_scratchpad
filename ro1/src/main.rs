@@ -25,7 +25,6 @@ async fn main() -> Result<()> {
 
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
-    //let rc_rtevents = running.clone();
     let rc_etwevents = running.clone();
     let rc_dbsync = running.clone();
     let (stop_tx, stop_rx) = mpsc::channel::<rtevents::StopSignal>(1);
@@ -78,7 +77,7 @@ async fn main() -> Result<()> {
 
     //process observer 
     let procobs_handle = thread::spawn(||{
-        let _ = rtevents::process_observer3(stop_rx);
+        let _ = rtevents::process_observer(stop_rx);
     });
     
     // process observer 
