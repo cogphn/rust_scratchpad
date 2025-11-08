@@ -1,6 +1,5 @@
 use serde::Deserialize;
 use serde::Serialize;
-use std::error::Error;
 use meilisearch_sdk::client::*;
 use argparse::{ArgumentParser, Store};
 
@@ -11,11 +10,6 @@ struct SurrealConfig {
     apikey: Option<String>
 }
 
-/*
-struct SuperDBConfig {
-    url: String
-}
-*/
 
 #[tokio::main]
 async fn main() -> Result<(),  Box<dyn std::error::Error>> {
@@ -43,16 +37,14 @@ async fn main() -> Result<(),  Box<dyn std::error::Error>> {
     
 
     let client = Client::new(mconfig.url, mconfig.apikey)?;
-    let telem = client.index("telem2");
+    let telem = client.index("telem3");
 
     let db = libsql::Builder::new_local(&cache_path).build().await?;
     let conn = db.connect().unwrap();
-    
 
-    let mut docid: i64 = 100;
     let mut offset: i64 = 0;
 
-    let mut query = "SELECT rawevent, ROWID AS id FROM events LIMIT 1000 OFFSET __OFFSET__";
+    let query = "SELECT rawevent, id FROM events LIMIT 1000 OFFSET __OFFSET__";
 
     println!("    [*] Config file: {}", mconfig_path);
     println!("    [*] Cache file: {}", cache_path);
@@ -73,7 +65,7 @@ async fn main() -> Result<(),  Box<dyn std::error::Error>> {
             }
             records.push(j_v);
         }
-        let ret = telem.add_documents(&records, Some("id")).await?;
+        let _ret = telem.add_documents(&records, Some("id")).await?;
         offset += 100;
     }    
     println!("[.] done");
