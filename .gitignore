@@ -7,3 +7,4 @@ mpush/meili_config.json
 */target/*
 *.db
 target/rust-analyzer/*
+mpush/mconfig.json
