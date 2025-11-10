@@ -74,22 +74,6 @@ fn ms_kernfile_etw_callback (record: &EventRecord, schema_locator: &SchemaLocato
 
 }
 
-/*
-fn secaudit_etw_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
-    N_EVENTS.fetch_add(1, Ordering::SeqCst);
-
-    match schema_locator.event_schema(record) {
-        Err(err) => {
-            println!("Unable to get the ETW schema for a Security Auditing event: {:?}", err);
-        }
-
-        Ok(schema) => {
-            parse_etw_secaudit_event(&schema, record);
-        }
-    }
-}
-*/
-
 fn parse_etw_file_event (schema: &Schema, record: &EventRecord) {
     let parser = Parser::create(record, schema);
     let event_desc = match record.event_id() {      
@@ -163,30 +147,6 @@ fn parse_etw_file_event (schema: &Schema, record: &EventRecord) {
     
 
 }
-
-/*
-fn parse_etw_secaudit_event(schema: &Schema, record: &EventRecord) {
-    let parser = Parser::create(record, schema);
-
-
-    let event_desc = match record.event_id() {      
-        // DNS events   
-        4688 => "task_04688",
-        _ => "not_tracked"
-    };
-
-    let event_id =  record.event_id();
-    let event_desc = event_desc.to_string();
-    let ts_str =  record.timestamp().to_string(); 
-    let provider_name = schema.provider_name();
-    let new_process_name: Option<String> = parser.try_parse("NewProcessName").ok();
-    
-
-    println!("{}    {}  {}  {:?}  {:?}",
-        event_id, event_desc, ts_str, provider_name, new_process_name    
-    );
-}
-*/
 
 fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
     let parser = Parser::create(record, schema);
@@ -383,11 +343,7 @@ fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
     // DBG2
     //let netsr = serde_json::to_string(&net_event_data).unwrap();
     let er = parser::netevent_to_er(net_event_data).unwrap();
-    /* 
-    cache::get_runtime().spawn(async move {
-        cache::insert_event(&er).await.ok();
-    });
-    */
+    
     cache::get_new_runtime().expect("[!] could not get cache runtime").spawn(async move {
         cache::insert_event(&er).await.ok();
     });
@@ -397,25 +353,6 @@ fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
     
 }
 
-
-
-// netconns 
-/*
-pub fn start_tcp_event_observer() -> Result<UserTrace, TraceError> {
-
-    let ms_tcpip_provider = Provider::by_guid("2F07E2EE-15DB-40F1-90EF-9D7BA282188A") // Microsoft-Windows-TCPIP
-        .add_callback(ms_tcpip_etw_callback)
-        .trace_flags(TraceFlags::EVENT_ENABLE_PROPERTY_PROCESS_START_KEY)
-        //.filter(EventFilter::new(0,0,0)) 
-        .build();
-
-    let trace = UserTrace::new()
-        .enable(ms_tcpip_provider)
-        .start_and_process();
-    
-    return trace;
-}
-*/
 
 pub fn stop_tcp_event_observer(trace: UserTrace) -> Result<(), TraceError> {
     return trace.stop();

@@ -451,7 +451,7 @@ pub fn netconn_to_er(netconn: snapshot::Netconn) -> Result<cache::GenericEventRe
     ret.context3 = netconn.conntype;
 
     if netconn.associated_processes.len() >= 1 {
-        let proc0 = &netconn.associated_processes[0];
+        let proc0 = &netconn.associated_processes[0]; //only gets the first process
         let tsstr = match &proc0.creation_date {
             Some(s) => s,
             _ => &"1970-01-01T00:00:00".to_string()
