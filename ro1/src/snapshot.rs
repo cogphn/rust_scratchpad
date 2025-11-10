@@ -14,7 +14,7 @@ pub struct Netconn {
     pub remote_address: String,
     pub remote_port: u16,
     pub state: String,
-    pub associated_pids: Vec<u32>,
+    pub associated_pids: Vec<u32>, //not sure I need this if I have associated_processes
     pub associated_processes: Vec<rtevents::Process>
 }
 

@@ -10,3 +10,4 @@ target/rust-analyzer/*
 mpush/mconfig.json
 pw.txt
 *.7z
+ro1/sampleout.json
