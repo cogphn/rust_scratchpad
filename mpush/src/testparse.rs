@@ -1,0 +1,231 @@
+use serde_json::{Value, Map};
+
+
+/*
+fn get_c_array(inp: Map<String, Value>) -> std::result::Result<Vec<Value>, Box<dyn std::error::Error>> {
+    if let Some(data_array) = inp["#c"].as_array() {
+        return Ok(data_array.to_vec());
+    } else {
+        return Err(format!("that does not look like an array").into());
+    }
+}
+ */
+
+
+fn get_key(obj: &Map<String, Value>, key: &String, mut parentkey: String)  {
+    let val = obj[key].clone();
+    parentkey = parentkey.replace("#c\\", "");
+    if key == "#t" {
+        println!("{}: {} ", parentkey, val);
+        return;
+    }    
+    match &val {
+        Value::Object(map) =>  {
+            //println!("Looks like an object" );
+            for topkey in map.keys() {
+                //println!("    > {}", key);
+                get_key(map, topkey, (parentkey.clone() + "\\"+ key).to_string());
+            }
+        },
+        Value::Array(arr) =>  {
+            //println!("Looks like an array");
+            if let Some(data_array) = val.as_array() {
+                for a in data_array{
+                    match a {
+                        Value::Object(ar_obj) => {                             
+                            for topkey in ar_obj.keys() {
+                                get_key(ar_obj, topkey, (parentkey.clone() + "\\"+ key).to_string());
+                            }
+                        },                        
+                        Value::String(str) => {
+                            println!("[string value (in array):] {}: {}", parentkey, str);
+                        },
+                        Value::Null => {},
+                        _ => {
+                            println!("[!] TODO: match more types");
+                        }
+                    }
+                }
+            }
+        },
+        Value::String(str) => {
+            println!("{}\\{}:  {}", parentkey, &key, str);
+        },
+        _ => {
+            println!("TODO: match more values here ");
+        }
+    }    
+}
+
+
+fn main() {
+    
+
+    let x = r###"{
+    "Event": {
+        "#c": [
+            {
+                "System": {
+                    "#c": [
+                        {
+                            "Provider": {
+                                "@Name": "MsiInstaller"
+                            }
+                        },
+                        {
+                            "EventID": {
+                                "#t": "11729",
+                                "@Qualifiers": "0"
+                            }
+                        },
+                        {
+                            "Version": {
+                                "#t": "0"
+                            }
+                        },
+                        {
+                            "Level": {
+                                "#t": "4"
+                            }
+                        },
+                        {
+                            "Task": {
+                                "#t": "0"
+                            }
+                        },
+                        {
+                            "Opcode": {
+                                "#t": "0"
+                            }
+                        },
+                        {
+                            "Keywords": {
+                                "#t": "0x80000000000000"
+                            }
+                        },
+                        {
+                            "TimeCreated": {
+                                "@SystemTime": "2025-10-29T01:06:13.2482484Z"
+                            }
+                        },
+                        {
+                            "EventRecordID": {
+                                "#t": "109003"
+                            }
+                        },
+                        {
+                            "Correlation": {}
+                        },
+                        {
+                            "Execution": {
+                                "@ProcessID": "0",
+                                "@ThreadID": "0"
+                            }
+                        },
+                        {
+                            "Channel": {
+                                "#t": "Application"
+                            }
+                        },
+                        {
+                            "Computer": {
+                                "#t": "labhost2"
+                            }
+                        },
+                        {
+                            "Security": {
+                                "@UserID": "S-1-5-21-3338565303-3805897153-2758210402-1001"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "EventData": {
+                    "#c": [
+                        {
+                            "Data": {
+                                "#t": "Product: Oracle VirtualBox 7.1.4 -- Configuration failed."
+                            }
+                        },
+                        {
+                            "Data": {
+                                "#t": "(NULL)"
+                            }
+                        },
+                        {
+                            "Data": {
+                                "#t": "(NULL)"
+                            }
+                        },
+                        {
+                            "Data": {
+                                "#t": "(NULL)"
+                            }
+                        },
+                        {
+                            "Data": {
+                                "#t": "(NULL)"
+                            }
+                        },
+                        {
+                            "Data": {
+                                "#t": "(NULL)"
+                            }
+                        },
+                        {
+                            "Data": {}
+                        },
+                        {
+                            "Binary": {
+                                "#t": "7B42374545394142322D343138382D344235462D383439392D3433313134453741443744417D2C2031363032"
+                            }
+                        }
+                    ]
+                }
+            }
+        ],
+        "@xmlns": "http://schemas.microsoft.com/win/2004/08/events/event"
+    }
+}"###;
+    let y: Value = serde_json::from_str(x).expect(" [!] error parsing json");
+
+    //let mut newrecord = Map::new();
+
+    /* 
+    if let Value::Object(map) = &y["Event"] {
+        for topkey in map.keys() {
+            if topkey == "#c" { // [] 
+                if let Some(data_array) = map[topkey].as_array() {
+                    for a in data_array{
+                        println!(">>> {}", a);
+                        println!("\n");
+                    }
+                }
+            }
+        }
+    }
+     */
+    /*
+    let z: Value = serde_json::from_str(obj2).expect("[!] could not parse object");
+    if let Value::Object(obj) = &z["Data"] {
+        for k in obj.keys() {
+            println!("[*] key: {}", k);
+            //println!("\n");
+            //println!(" >>> {}", obj[k]);
+            if k == "#t" {
+                println!(">>> {}", obj[k]);
+            }
+        }
+    }
+     */
+
+    if let Value::Object(map) = &y["Event"] {
+        for topkey in map.keys() {
+            get_key(map, topkey, "<< root >>".to_string());
+        }
+    }
+
+    println!("[.] done! ");
+    
+}
