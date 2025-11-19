@@ -1,5 +1,5 @@
 use serde_json::{Value, Map};
-
+use serde_json::json;
 
 /*
 fn get_c_array(inp: Map<String, Value>) -> std::result::Result<Vec<Value>, Box<dyn std::error::Error>> {
@@ -53,6 +53,70 @@ fn get_key(obj: &Map<String, Value>, key: &String, mut parentkey: String)  {
         },
         _ => {
             println!("TODO: match more values here ");
+        }
+    }    
+}
+
+
+
+fn get_key1(obj: &Map<String, Value>, key: &String, mut parentkey: String) -> Vec<Map<String, Value>>  {
+    let val = obj[key].clone();
+    parentkey = parentkey.replace("#c\\", "");
+    if key == "#t" {
+        println!("{}: {} ", parentkey, val);
+        let mut ret = serde_json::Map::new();
+        ret[&parentkey] = val;
+        return vec![ret]; 
+    }    
+    match &val {
+        Value::Object(map) =>  {
+            let mut ret = vec![];
+            for topkey in map.keys() {
+                let mut r1 = get_key1(map, topkey, (parentkey.clone() + "\\"+ key).to_string());
+                ret.append(&mut r1);
+            }
+            return ret;
+        },
+        Value::Array(arr) =>  {
+            //println!("Looks like an array");
+            if let Some(data_array) = val.as_array() {
+                let mut ret = vec![];
+                for a in data_array{
+                    match a {
+                        Value::Object(ar_obj) => {
+                            for topkey in ar_obj.keys() {
+                                let mut r1 = get_key1(ar_obj, topkey, (parentkey.clone() + "\\"+ key).to_string());
+                                ret.append(&mut r1);
+                            }
+                        },                        
+                        Value::String(str) => {
+                            println!("[string value (in array):] {}: {}", parentkey, str);
+                            let mut r1 = Map::new();
+                            r1[&parentkey] = json!(str);
+                            ret.append(&mut vec![r1]);
+                        },
+                        Value::Null => {},
+                        _ => {
+                            println!("[!] TODO: match more types");
+                        }
+                    }
+                }
+                return ret;
+            } else {
+                return vec![]; // maybe this never happens
+            }
+        },
+        Value::String(str) => {
+            println!("{}\\{}:  {}", parentkey, &key, str);
+            let mut r1 = serde_json::Map::new();
+            let v = json!(str);
+            r1[key] =v;
+            return vec![r1];
+
+        },
+        _ => {
+            println!("TODO: match more values here ");
+            return vec![];
         }
     }    
 }
@@ -222,7 +286,10 @@ fn main() {
 
     if let Value::Object(map) = &y["Event"] {
         for topkey in map.keys() {
-            get_key(map, topkey, "<< root >>".to_string());
+            //get_key(map, topkey, "<< root >>".to_string());
+            let x = get_key(map, topkey, "<root>".to_string());
+            println!("------------------");
+            println!("{:?}", x);
         }
     }
 
