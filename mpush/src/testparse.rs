@@ -65,7 +65,8 @@ fn get_key1(obj: &Map<String, Value>, key: &String, mut parentkey: String) -> Ve
     if key == "#t" {
         println!("{}: {} ", parentkey, val);
         let mut ret = serde_json::Map::new();
-        ret[&parentkey] = val;
+        //ret[&parentkey] = val;
+        ret.insert(parentkey, val);
         return vec![ret]; 
     }    
     match &val {
@@ -110,7 +111,10 @@ fn get_key1(obj: &Map<String, Value>, key: &String, mut parentkey: String) -> Ve
             println!("{}\\{}:  {}", parentkey, &key, str);
             let mut r1 = serde_json::Map::new();
             let v = json!(str);
-            r1[key] =v;
+            //let val = match r1.get_key_value(key) {
+            //    Ok(v)
+            //}
+            r1.insert(key.to_string(), v);
             return vec![r1];
 
         },
@@ -287,7 +291,7 @@ fn main() {
     if let Value::Object(map) = &y["Event"] {
         for topkey in map.keys() {
             //get_key(map, topkey, "<< root >>".to_string());
-            let x = get_key(map, topkey, "<root>".to_string());
+            let x = get_key1(map, topkey, "<root>".to_string());
             println!("------------------");
             println!("{:?}", x);
         }
