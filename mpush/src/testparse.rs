@@ -63,7 +63,7 @@ fn get_key1(obj: &Map<String, Value>, key: &String, mut parentkey: String) -> Ve
     let val = obj[key].clone();
     parentkey = parentkey.replace("#c\\", "");
     if key == "#t" {
-        println!("{}: {} ", parentkey, val);
+        //println!("{}: {} ", parentkey, val);
         let mut ret = serde_json::Map::new();
         //ret[&parentkey] = val;
         ret.insert(parentkey, val);
@@ -91,7 +91,7 @@ fn get_key1(obj: &Map<String, Value>, key: &String, mut parentkey: String) -> Ve
                             }
                         },                        
                         Value::String(str) => {
-                            println!("[string value (in array):] {}: {}", parentkey, str);
+                            //println!("[string value (in array):] {}: {}", parentkey, str);
                             let mut r1 = Map::new();
                             r1[&parentkey] = json!(str);
                             ret.append(&mut vec![r1]);
@@ -108,7 +108,7 @@ fn get_key1(obj: &Map<String, Value>, key: &String, mut parentkey: String) -> Ve
             }
         },
         Value::String(str) => {
-            println!("{}\\{}:  {}", parentkey, &key, str);
+            //println!("{}\\{}:  {}", parentkey, &key, str);
             let mut r1 = serde_json::Map::new();
             let v = json!(str);
             //let val = match r1.get_key_value(key) {
@@ -288,11 +288,24 @@ fn main() {
     }
      */
 
+    let new_obj = serde_json::Map::new();
+
     if let Value::Object(map) = &y["Event"] {
         for topkey in map.keys() {
             //get_key(map, topkey, "<< root >>".to_string());
             let x = get_key1(map, topkey, "<root>".to_string());
-            println!("------------------");
+            
+            /*
+            for obj in x.clone().into_iter() {
+                for k in obj.keys() {
+                    println!("{} ----> {}",k, obj[k]);
+                    println!("----------------");
+                }
+                
+            }
+             */
+        
+            //println!("------------------{}", x.len());
             println!("{:?}", x);
         }
     }
