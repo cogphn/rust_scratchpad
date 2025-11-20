@@ -296,7 +296,7 @@ fn main() {
             //get_key(map, topkey, "<< root >>".to_string());
             let x = get_key1(map, topkey, "<root>".to_string());
             
-            
+            let mut kresolver = 1;
             for obj in x.clone().into_iter() {
                 for k in obj.keys() {
                     //println!("{} ----> {}",k, obj[k]);
@@ -307,7 +307,12 @@ fn main() {
                     } else {
                         let mut nk = k.replace("<root>\\","");
                         nk = nk.replace("@", "");
+                        if new_obj.contains_key(&nk) {
+                            nk = nk + &kresolver.to_string();
+                            kresolver += 1;                            
+                        } 
                         new_obj.insert(nk, obj[k].clone());
+                        
                     }
                     println!("----------------");
                 }
