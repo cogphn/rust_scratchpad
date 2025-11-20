@@ -92,8 +92,9 @@ fn get_key1(obj: &Map<String, Value>, key: &String, mut parentkey: String) -> Ve
                         },                        
                         Value::String(str) => {
                             //println!("[string value (in array):] {}: {}", parentkey, str);
+                            // TODO: review/ remove
                             let mut r1 = Map::new();
-                            r1[&parentkey] = json!(str);
+                            r1[&parentkey] = json!(str); //this is probably wrong
                             ret.append(&mut vec![r1]);
                         },
                         Value::Null => {},
@@ -288,28 +289,39 @@ fn main() {
     }
      */
 
-    let new_obj = serde_json::Map::new();
+    let mut new_obj = serde_json::Map::new();
 
     if let Value::Object(map) = &y["Event"] {
         for topkey in map.keys() {
             //get_key(map, topkey, "<< root >>".to_string());
             let x = get_key1(map, topkey, "<root>".to_string());
             
-            /*
+            
             for obj in x.clone().into_iter() {
                 for k in obj.keys() {
-                    println!("{} ----> {}",k, obj[k]);
+                    //println!("{} ----> {}",k, obj[k]);
+                    if k.starts_with("<root>\\System") {                        
+                        let mut nk =k.replace("<root>\\System\\", "");
+                        nk = nk.replace("@","");
+                        new_obj.insert(nk, obj[k].clone());
+                    } else {
+                        let mut nk = k.replace("<root>\\","");
+                        nk = nk.replace("@", "");
+                        new_obj.insert(nk, obj[k].clone());
+                    }
                     println!("----------------");
                 }
                 
             }
-             */
+            
+            
         
             //println!("------------------{}", x.len());
-            println!("{:?}", x);
+            //println!("{:?}", x);
         }
     }
 
+    println!("{:?}", new_obj);
     println!("[.] done! ");
     
 }
