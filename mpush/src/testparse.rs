@@ -299,7 +299,9 @@ fn main() {
             let mut kresolver = 1;
             for obj in x.clone().into_iter() {
                 for k in obj.keys() {
-                    //println!("{} ----> {}",k, obj[k]);
+                    if obj[k] == "(NULL)"{
+                        continue;
+                    }                        
                     if k.starts_with("<root>\\System") {                        
                         let mut nk =k.replace("<root>\\System\\", "");
                         nk = nk.replace("@","");
@@ -307,14 +309,14 @@ fn main() {
                     } else {
                         let mut nk = k.replace("<root>\\","");
                         nk = nk.replace("@", "");
-                        if new_obj.contains_key(&nk) {
+                        if new_obj.contains_key(&nk) {                            
                             nk = nk + &kresolver.to_string();
                             kresolver += 1;                            
-                        } 
+                        }
+                        
                         new_obj.insert(nk, obj[k].clone());
                         
-                    }
-                    println!("----------------");
+                    }                    
                 }
                 
             }
