@@ -25,3 +25,7 @@ path ="src/mpushdev.rs"
 [[bin]]
 name = "rawdump"
 path ="src/obsrawdump.rs"
+
+[[bin]]
+name = "test"
+path ="src/testparse.rs"
