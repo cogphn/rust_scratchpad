@@ -1,54 +1,11 @@
 use serde_json::{Value, Map};
 use serde_json::json;
 
-fn get_key(obj: &Map<String, Value>, key: &String, mut parentkey: String)  {
-    let val = obj[key].clone();
-    parentkey = parentkey.replace("#c\\", "");
-    if key == "#t" {
-        println!("{}: {} ", parentkey, val);
-        return;
-    }    
-    match &val {
-        Value::Object(map) =>  {
-            //println!("Looks like an object" );
-            for topkey in map.keys() {
-                //println!("    > {}", key);
-                get_key(map, topkey, (parentkey.clone() + "\\"+ key).to_string());
-            }
-        },
-        Value::Array(arr) =>  {
-            //println!("Looks like an array");
-            if let Some(data_array) = val.as_array() {
-                for a in data_array{
-                    match a {
-                        Value::Object(ar_obj) => {                             
-                            for topkey in ar_obj.keys() {
-                                get_key(ar_obj, topkey, (parentkey.clone() + "\\"+ key).to_string());
-                            }
-                        },                        
-                        Value::String(str) => {
-                            println!("[string value (in array):] {}: {}", parentkey, str);
-                        },
-                        Value::Null => {},
-                        _ => {
-                            println!("[!] TODO: match more types");
-                        }
-                    }
-                }
-            }
-        },
-        Value::String(str) => {
-            println!("{}\\{}:  {}", parentkey, &key, str);
-        },
-        _ => {
-            println!("TODO: match more values here ");
-        }
-    }    
-}
 
 
 
-fn get_key1(obj: &Map<String, Value>, key: &String, mut parentkey: String) -> Vec<Map<String, Value>>  {
+
+fn get_wel_values(obj: &Map<String, Value>, key: &String, mut parentkey: String) -> Vec<Map<String, Value>>  {
     let val = obj[key].clone();
     parentkey = parentkey.replace("#c\\", "");
     if key == "#t" {
@@ -60,19 +17,19 @@ fn get_key1(obj: &Map<String, Value>, key: &String, mut parentkey: String) -> Ve
         Value::Object(map) =>  {
             let mut ret = vec![];
             for topkey in map.keys() {
-                let mut r1 = get_key1(map, topkey, (parentkey.clone() + "\\"+ key).to_string());
+                let mut r1 = get_wel_values(map, topkey, (parentkey.clone() + "\\"+ key).to_string());
                 ret.append(&mut r1);
             }
             return ret;
         },
-        Value::Array(arr) =>  {
+        Value::Array(_arr) =>  {
             if let Some(data_array) = val.as_array() {
                 let mut ret = vec![];
                 for a in data_array{
                     match a {
                         Value::Object(ar_obj) => {
                             for topkey in ar_obj.keys() {
-                                let mut r1 = get_key1(ar_obj, topkey, (parentkey.clone() + "\\"+ key).to_string());
+                                let mut r1 = get_wel_values(ar_obj, topkey, (parentkey.clone() + "\\"+ key).to_string());
                                 ret.append(&mut r1);
                             }
                         },                        
@@ -121,7 +78,7 @@ fn parse_wel_raw(wels_raw: String) -> Result<serde_json::Map<String, Value>, ser
 
     if let Value::Object(map) = &obj["Event"] {
         for topkey in map.keys() {
-            let x = get_key1(map, topkey, "<root>".to_string());
+            let x = get_wel_values(map, topkey, "<root>".to_string());
             let mut kresolver = 1;
             for obj in x.clone().into_iter() {
                 for k in obj.keys() {

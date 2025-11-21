@@ -1,3 +1,4 @@
+use chrono::{NaiveDate, NaiveTime};
 use chrono::{DateTime, Utc, NaiveDateTime, ParseError, Local }; 
 use super::cache;
 use super::rtevents;
@@ -7,6 +8,12 @@ use std::collections::HashMap;
 
 use rtevents::etwevents::templates;
 
+
+pub fn get_default_date() -> NaiveDateTime {
+    let dd = NaiveDate::from_ymd_opt(1970, 01, 01).unwrap();
+    let dt = NaiveTime::from_hms_opt(0, 0, 0).unwrap();
+    return NaiveDateTime::new(dd, dt);
+}
 
 pub fn convert_wmi_datetime_to_datetime(wmi_date: &str) -> Result<NaiveDateTime, ParseError> { 
     if wmi_date.len() < 14 {
@@ -80,8 +87,9 @@ pub fn proc_hm_to_pi(process: &HashMap<String, Variant>, classname: &str) -> Res
             Some(Variant::String(s)) => s,
             _ => &"1970-01-01T00:00:00".to_string()
         };
-        newproc.creation_date = convert_wmi_datetime_to_datetime(&cd_str).unwrap();
-        newproc.creation_date_utc = convert_wmi_datetime_to_datetime_utc(&cd_str).unwrap();
+        let default_dt = get_default_date();
+        newproc.creation_date = convert_wmi_datetime_to_datetime(&cd_str).unwrap_or(default_dt);
+        newproc.creation_date_utc = convert_wmi_datetime_to_datetime_utc(&cd_str).unwrap_or(default_dt);
 
         
         newproc.description = match process.get("Description") {
@@ -144,6 +152,8 @@ pub fn proc_hm_to_pi(process: &HashMap<String, Variant>, classname: &str) -> Res
             },
             Err(_) => "1970-01-01T00:00:00"
         };
+
+        //let default_date = NaiveDateTime::new(NaiveDate::from_ymd_opt(1970, 01, 01), NaiveTime::from_hms_opt(0,0,0));
         newproc.creation_date = convert_wmi_datetime_to_datetime(&cd_str).unwrap();
         newproc.creation_date_utc = convert_wmi_datetime_to_datetime_utc(&cd_str).unwrap();
 
