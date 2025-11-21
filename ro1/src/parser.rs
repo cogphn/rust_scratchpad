@@ -5,7 +5,7 @@ use super::rtevents;
 use super::snapshot;
 use wmi::{Variant};
 use std::collections::HashMap;
-
+use serde_json::{Map,Value,json};
 use rtevents::etwevents::templates;
 
 
@@ -226,6 +226,109 @@ pub fn pi_to_er(pi:&rtevents::ProcessInfo, procsrc: &str) -> Result<cache::Gener
     Ok(ret)
 }
 
+fn get_wel_values(obj: &Map<String, Value>, key: &String, mut parentkey: String) -> Vec<Map<String, Value>>  {
+    let val = obj[key].clone();
+    parentkey = parentkey.replace("#c\\", "");
+    if key == "#t" {
+        let mut ret = serde_json::Map::new();
+        ret.insert(parentkey, val);
+        return vec![ret]; 
+    }    
+    match &val {
+        Value::Object(map) =>  {
+            let mut ret = vec![];
+            for topkey in map.keys() {
+                let mut r1 = get_wel_values(map, topkey, (parentkey.clone() + "\\"+ key).to_string());
+                ret.append(&mut r1);
+            }
+            return ret;
+        },
+        Value::Array(_arr) =>  {
+            if let Some(data_array) = val.as_array() {
+                let mut ret = vec![];
+                for a in data_array{
+                    match a {
+                        Value::Object(ar_obj) => {
+                            for topkey in ar_obj.keys() {
+                                let mut r1 = get_wel_values(ar_obj, topkey, (parentkey.clone() + "\\"+ key).to_string());
+                                ret.append(&mut r1);
+                            }
+                        },                        
+                        Value::String(str) => {                            
+                            let mut r1 = Map::new();
+                            r1.insert(parentkey.clone(), json!(str));
+                            ret.append(&mut vec![r1]);
+                        },
+                        Value::Null => {},
+                        _ => {
+                            println!("[!] TODO: match more types");
+                        }
+                    }
+                }
+                return ret;
+            } else {
+                return vec![]; // maybe this never happens
+            }
+        },
+        Value::String(str) => {
+            let mut r1 = serde_json::Map::new();
+            let v = json!(str);            
+            r1.insert(key.to_string(), v);
+            return vec![r1];
+
+        },
+        _ => {
+            println!("[!]: match more values here ");
+            return vec![];
+        }
+    }    
+}
+
+fn wel_raw_to_obj(wels_raw: String) -> Result<serde_json::Map<String, serde_json::Value>, serde_json::Error> {
+    let wels_obj: Result<serde_json::Value, serde_json::Error> = serde_json::from_str(&wels_raw);
+
+    let obj = match wels_obj {
+        Err(e) => {
+            return Err(e);
+        },
+        Ok(val) => {val}
+    };
+    
+    let mut ret = serde_json::Map::new();
+
+    if let serde_json::Value::Object(map) = &obj["Event"] {
+        for topkey in map.keys() {
+            let x = get_wel_values(map, topkey, "<root>".to_string());
+            let mut kresolver = 1;
+            for obj in x.clone().into_iter() {
+                for k in obj.keys() {
+                    if obj[k] == "(NULL)"{
+                        continue;
+                    }                        
+                    if k.starts_with("<root>\\System") {                        
+                        let mut nk =k.replace("<root>\\System\\", "");
+                        nk = nk.replace("@","");
+                        ret.insert(nk, obj[k].clone());
+                    } else {
+                        let mut nk = k.replace("<root>\\","");
+                        nk = nk.replace("@", "");
+                        if ret.contains_key(&nk) {                            
+                            nk = nk + &kresolver.to_string();
+                            kresolver += 1;                            
+                        }
+                        ret.insert(nk, obj[k].clone());
+                        
+                    }                    
+                }
+            }
+        }
+    }
+
+
+    Ok(ret)
+
+}
+
 
 pub fn wel_json_to_er(event_str: &str) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
     let mut ret  = cache::GenericEventRecord {
@@ -242,6 +345,20 @@ pub fn wel_json_to_er(event_str: &str) -> Result<cache::GenericEventRecord, Box<
         context3_attrib: "N/A".to_string(),
         rawevent: event_str.to_string()
     };
+
+    let wel_rawobj = wel_raw_to_obj(event_str.to_string());
+
+    match wel_rawobj {
+        Err(_e) => {},
+        Ok(parsed_obj) => {
+            let parsed_str = serde_json::to_string(&parsed_obj);
+            match parsed_str{
+                Err(_err) => {},
+                Ok(parsed) => {ret.rawevent = parsed;}
+            }
+        }
+    }
+    
 
     let event_json = serde_json::from_str::<serde_json::Value>(event_str).unwrap();
     let system_json_array = &event_json["Event"]["#c"][0]["System"]["#c"];

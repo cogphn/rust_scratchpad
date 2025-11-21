@@ -255,7 +255,7 @@ fn main() {
             let z = serde_json::to_string(&v);
             match z {
                 Err(e) => {
-                    println!("[!] error converting object to string :/ ", );
+                    println!("[!] error converting object to string: {:?} ", e);
                 },
                 Ok(str) => {
                     println!("{}", str);
