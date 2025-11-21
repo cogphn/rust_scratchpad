@@ -64,7 +64,7 @@ fn get_wel_values(obj: &Map<String, Value>, key: &String, mut parentkey: String)
     }    
 }
 
-fn parse_wel_raw(wels_raw: String) -> Result<serde_json::Map<String, Value>, serde_json::Error> {
+fn wel_raw_to_obj(wels_raw: String) -> Result<serde_json::Map<String, Value>, serde_json::Error> {
     let wels_obj: Result<serde_json::Value, serde_json::Error> = serde_json::from_str(&wels_raw);
 
     let obj = match wels_obj {
@@ -108,6 +108,8 @@ fn parse_wel_raw(wels_raw: String) -> Result<serde_json::Map<String, Value>, ser
     Ok(ret)
 
 }
+
+
 
 fn main() {
     
@@ -241,14 +243,24 @@ fn main() {
 }"###;
     
 
-    let x = parse_wel_raw(x.to_string());
+    let x = wel_raw_to_obj(x.to_string());
+    
 
     match x {
         Err(e) => {
             println!("[!] error occured: {:?}", e);
         },
         Ok(v) => {
-            println!("[✓] parsed: {:?}", v);
+            println!("[✓] parsed");
+            let z = serde_json::to_string(&v);
+            match z {
+                Err(e) => {
+                    println!("[!] error converting object to string :/ ", );
+                },
+                Ok(str) => {
+                    println!("{}", str);
+                }
+            }
         }
     }    
     println!("[.] done! ");
