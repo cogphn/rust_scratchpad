@@ -12,7 +12,8 @@ fn get_wel_values(obj: &Map<String, Value>, key: &String, mut parentkey: String)
         let mut ret = serde_json::Map::new();
         ret.insert(parentkey, val);
         return vec![ret]; 
-    }    
+    }
+    
     match &val {
         Value::Object(map) =>  {
             let mut ret = vec![];
@@ -89,12 +90,17 @@ fn wel_raw_to_obj(wels_raw: String) -> Result<serde_json::Map<String, Value>, se
                         let mut nk =k.replace("<root>\\System\\", "");
                         nk = nk.replace("@","");
                         ret.insert(nk, obj[k].clone());
+                        
                     } else {
                         let mut nk = k.replace("<root>\\","");
                         nk = nk.replace("@", "");
                         if ret.contains_key(&nk) {                            
                             nk = nk + &kresolver.to_string();
                             kresolver += 1;                            
+                        }
+                        if nk.clone().contains("SystemTime") {
+                            //println!("[!][dbg] {}, {}", k, obj[k].clone() );
+                            ret.insert("ts_str".to_string(), obj[k].clone());
                         }
                         ret.insert(nk, obj[k].clone());
                         

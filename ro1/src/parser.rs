@@ -153,9 +153,9 @@ pub fn proc_hm_to_pi(process: &HashMap<String, Variant>, classname: &str) -> Res
             Err(_) => "1970-01-01T00:00:00"
         };
 
-        //let default_date = NaiveDateTime::new(NaiveDate::from_ymd_opt(1970, 01, 01), NaiveTime::from_hms_opt(0,0,0));
-        newproc.creation_date = convert_wmi_datetime_to_datetime(&cd_str).unwrap();
-        newproc.creation_date_utc = convert_wmi_datetime_to_datetime_utc(&cd_str).unwrap();
+        let dd = get_default_date();
+        newproc.creation_date = convert_wmi_datetime_to_datetime(&cd_str).unwrap_or(dd);
+        newproc.creation_date_utc = convert_wmi_datetime_to_datetime_utc(&cd_str).unwrap_or(dd);
 
         newproc.description = match &process_details{
             Ok(details) => match details.get("Description") {
@@ -261,7 +261,7 @@ fn get_wel_values(obj: &Map<String, Value>, key: &String, mut parentkey: String)
                         },
                         Value::Null => {},
                         _ => {
-                            println!("[!] TODO: match more types");
+                            println!("[!][DBG - parser.get_wel_values] TODO: match more types");
                         }
                     }
                 }
@@ -278,7 +278,7 @@ fn get_wel_values(obj: &Map<String, Value>, key: &String, mut parentkey: String)
 
         },
         _ => {
-            println!("[!]: match more values here ");
+            println!("[!][DBG - parser.get_wel_values]: match more values here ");
             return vec![];
         }
     }    
@@ -315,6 +315,9 @@ fn wel_raw_to_obj(wels_raw: String) -> Result<serde_json::Map<String, serde_json
                         if ret.contains_key(&nk) {                            
                             nk = nk + &kresolver.to_string();
                             kresolver += 1;                            
+                        }
+                        if nk.clone().contains("SystemTime") {
+                            ret.insert("ts_str".to_string(), obj[k].clone());
                         }
                         ret.insert(nk, obj[k].clone());
                         
