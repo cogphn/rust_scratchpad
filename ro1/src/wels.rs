@@ -3,7 +3,6 @@ use windows::{
     Win32::{self, System::EventLog::*},
 };
 use std::{ffi::c_void, ptr};
-//use tokio;
 
 use super::util;
 use super::cache;
@@ -38,7 +37,7 @@ pub unsafe extern "system" fn event_callback(
                      &mut property_count,
                  )};
             
-            let mut buffer = vec![0u16; buffer_used as usize]; // work
+            let mut buffer = vec![0u16; buffer_used as usize]; 
             let buffer_size = buffer_used;
 
             let _ = unsafe {
@@ -53,13 +52,12 @@ pub unsafe extern "system" fn event_callback(
                  )
             };
 
-            let xml = String::from_utf16_lossy(&buffer); // works            
+            let xml = String::from_utf16_lossy(&buffer);             
             let jstr = util::evt_xml_to_json(xml);
 
             let jstr_parsed = parser::wel_json_to_er(&jstr.as_ref().unwrap_or(&"".to_string()));
             if let Ok(er) = jstr_parsed {                
                 //println!("{:?}", er); // DEBUG
-
                 cache::get_new_runtime().expect("[!] cannot get cache runtime").spawn(async move {
                     cache::insert_event(&er).await.ok();
                 });
@@ -73,7 +71,7 @@ pub unsafe extern "system" fn event_callback(
             println!("Subscription action: {:?}", action);
         }
     }
-    0 // Return 0 to indicate success
+    0 // 0 = success
 }
 
 
