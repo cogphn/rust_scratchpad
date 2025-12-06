@@ -1,29 +1,20 @@
 use windows::{
     Win32::{
-        Foundation::{ERROR_NO_MORE_ITEMS, WIN32_ERROR, GetLastError},
+        Foundation::{ERROR_NO_MORE_ITEMS, GetLastError},
         System::EventLog::{
-            EvtClose, EvtNextChannelPath, EvtOpenChannelEnum, EvtRpcLogin, EVT_RPC_LOGIN, EvtOpenSession
+            EvtNextChannelPath, EvtOpenChannelEnum
         },
     },
 };
 
 fn main() -> windows::core::Result<()> {
     unsafe {
-        //let login: *const EVT_RPC_LOGIN = std::ptr::null();
-
-        // Open channel enumerator. 
-        // From docs: Session: Set to NULL to enumerate the channels on the local computer.
-        // flags must be zero lol. "Reserved"
         let h_enum = EvtOpenChannelEnum(None, 0)?; 
         if h_enum.is_invalid() {
             eprintln!("Failed to open channel enumerator");
             return Ok(());
         }
-
-        let mut buffer_size = 256;        
-        let mut buffer_used: u32 = 256;
-        let mut buffer: Vec<u16> = vec![0u16; 256];
-        
+        let mut buffer_used: u32 = 256;        
         println!("[DBG] entering loop");
 
         
@@ -37,27 +28,18 @@ fn main() -> windows::core::Result<()> {
                 Some(&mut pathbuffer),
                 &mut buffer_used,
             );
-
-            buffer.resize(buffer_size as usize, 0);
-
             match res {
-                Ok(v) => {
-                    //let err = WIN32_ERROR(windows::Win32::Foundation::GetLastError().0);
-                    println!("[DBG] ok returned ...");
-                    ///////////////////////// quick unrevised edit 
-                    buffer_size = buffer_used;
+                Ok(_v) => {
                     let mut cpb1 = [0u16; 256];
 
                     match EvtNextChannelPath(
                         h_enum,
                         Some(&mut cpb1),
-                        &mut buffer_size
+                        &mut buffer_used
                     ) {
                         Ok(_val) => {
-                            println!("[DBG] ok val @ line 60; buffer_size: {:?}", &buffer_size);
-                            
                             let channel = String::from_utf16_lossy(
-                                &cpb1[..(buffer_size - 1) as usize]
+                                &cpb1[..(buffer_used - 1) as usize]
                             );
                             println!("{:?}", channel);
                             
@@ -66,20 +48,18 @@ fn main() -> windows::core::Result<()> {
                             eprintln!("Failed to read channel path: {}", e);
                         }
                     }
-                    // end quick unrevised edit 
                     let err = GetLastError();
                     if err == ERROR_NO_MORE_ITEMS {
                         eprintln!("[!] no more items apparently");
                         break; // No more channels
                     }
                 },
-                Err(e) => {
-                    //let err = WIN32_ERROR(windows::Win32::Foundation::GetLastError().0);
+                Err(_e) => {
                     let err = GetLastError();
-                    eprintln!("{:?}", err.0);
+                    //eprintln!("{:?}", err.0);
 
                     if err.0 == 122 { //ERROR_INSUFFICIENT_BUFFER
-                        buffer_size = buffer_used;
+                        //buffer_size = buffer_used;
                         //let channelpathbuffer: Option<&mut [u16]> = Some(&mut [0u16]);
                         let mut channelpathbuffer = [0u16; 256];
                         match EvtNextChannelPath(
@@ -94,7 +74,7 @@ fn main() -> windows::core::Result<()> {
                                 println!("{}", channel);
                             },
                             Err(e) => {
-                                eprintln!("Failed to read channel path: {}", e);
+                                eprintln!(" [!] Failed to read channel path: {}", e);
                             }
                         }
                     } else if err.0 == 259  {
@@ -108,8 +88,6 @@ fn main() -> windows::core::Result<()> {
             }
             
         }
-
-        
     } // unsafe
 
     Ok(())
