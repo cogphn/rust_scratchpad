@@ -9,3 +9,13 @@ ferrisetw = { version="1.2.0", features=["time_rs"] }
 serde = {version="1.0.219", features=["derive"]}
 serde_json = "1.0.143" 
 time = "0.3.43"
+windows = { version = "0.62.2", features = [ "Win32_System_EventLog", "Win32_Foundation"] }
+
+[[bin]]
+name = "testlist"
+path ="src/testlist.rs"
+
+[[bin]]
+name = "testlist2"
+path ="src/testlist2.rs"
+
