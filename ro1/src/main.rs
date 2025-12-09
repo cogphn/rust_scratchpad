@@ -39,12 +39,14 @@ async fn main() -> Result<()> {
         println!(" [*] Shutting down...");
     }).expect(" [!] some kind of error presumably.... shutting down");
     
-    // TODO: read from config file
+    // TODO: read from config file    
     let elog_scope = vec![
         wels::ElogChannel {channel_name: "Application".to_string(), query: "*".to_string()},
         wels::ElogChannel {channel_name: "System".to_string(), query: "*".to_string()},
         wels::ElogChannel {channel_name: "Security".to_string(), query: "*".to_string()}
     ];
+    
+    //let elog_scope = wels::get_evt_channels(); // Error: Error { code: HRESULT(0x80070032), message: "The request is not supported." }
         
     println!("  [*] Subscribing to Windows Event Logs...");
     let mut sub_handles = Vec::new();

@@ -97,7 +97,7 @@ pub fn get_evt_sub_handle(elog_channel_path:&str, query: &str) -> Result<Win32::
 }
 
 // TODO: implement
-fn get_evt_channels() -> Vec<ElogChannel> {
+pub fn get_evt_channels() -> Vec<ElogChannel> {
     let mut ret: Vec<ElogChannel> = Vec::new();
     unsafe {
         let h_enum = match EvtOpenChannelEnum(None, 0) {
