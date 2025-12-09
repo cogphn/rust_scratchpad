@@ -15,3 +15,7 @@ windows = { version = "0.62.2", features = [ "Win32_System_EventLog", "Win32_Fou
 name = "testlist"
 path ="src/testlist.rs"
 
+[[bin]]
+name = "testlist2"
+path ="src/testlist2.rs"
+
