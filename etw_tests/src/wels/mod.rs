@@ -50,7 +50,7 @@ pub unsafe extern "system" fn event_callback(
             };
 
             let xml = String::from_utf16_lossy(&buffer);             
-            println!("{:?}", xml);
+            println!("{}", xml);
         }
         _ => {
             println!("Subscription action: {:?}", action);

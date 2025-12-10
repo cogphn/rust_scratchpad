@@ -3,9 +3,10 @@ use windows::{
     Win32::{System::EventLog::*},
 };
 
-use std::{sync::atomic::{AtomicBool, Ordering}};
+use std::sync::{atomic::{AtomicBool, Ordering}, mpsc::channel};
 use std::sync::Arc;
 
+use argparse::{ArgumentParser, Store};
 
 pub mod wels;
 
@@ -17,16 +18,26 @@ async fn main() -> Result<()> {
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
 
+    let mut channel_name = "Application".to_string();
+
+    {
+        let mut ap = ArgumentParser::new();
+        ap.refer(&mut channel_name).add_option(
+            &["-c", "--channel-name"],
+            Store,
+            "WEL Channel Name"
+        ).required();
+        ap.parse_args_or_exit();
+    }
+
+
     ctrlc::set_handler(move || {
         r.store(false, Ordering::SeqCst);        
         println!(" [*] Shutting down...");
     }).expect(" [!] some kind of error presumably.... shutting down");
     
-    // TODO: read from config file    
     let elog_scope = vec![
-        wels::ElogChannel {channel_name: "Application".to_string(), query: "*".to_string()},
-        wels::ElogChannel {channel_name: "System".to_string(), query: "*".to_string()},
-        wels::ElogChannel {channel_name: "Security".to_string(), query: "*".to_string()}
+        wels::ElogChannel { channel_name: channel_name.to_string(), query: "*".to_string() }
     ];
     
     //let elog_scope = wels::get_evt_channels(); // Error: Error { code: HRESULT(0x80070032), message: "The request is not supported." }
