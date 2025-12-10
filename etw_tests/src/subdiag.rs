@@ -2,24 +2,17 @@ use windows::{
     core::{Result},
     Win32::{System::EventLog::*},
 };
-
-use std::sync::{atomic::{AtomicBool, Ordering}, mpsc::channel};
+use std::sync::{atomic::{AtomicBool, Ordering}};
 use std::sync::Arc;
-
 use argparse::{ArgumentParser, Store};
-
 pub mod wels;
-
-
 
 #[tokio::main]
 async fn main() -> Result<()> {
-
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
 
     let mut channel_name = "Application".to_string();
-
     {
         let mut ap = ArgumentParser::new();
         ap.refer(&mut channel_name).add_option(
@@ -30,7 +23,6 @@ async fn main() -> Result<()> {
         ap.parse_args_or_exit();
     }
 
-
     ctrlc::set_handler(move || {
         r.store(false, Ordering::SeqCst);        
         println!(" [*] Shutting down...");
@@ -39,8 +31,6 @@ async fn main() -> Result<()> {
     let elog_scope = vec![
         wels::ElogChannel { channel_name: channel_name.to_string(), query: "*".to_string() }
     ];
-    
-    //let elog_scope = wels::get_evt_channels(); // Error: Error { code: HRESULT(0x80070032), message: "The request is not supported." }
         
     println!("  [*] Subscribing to Windows Event Logs...");
     let mut sub_handles = Vec::new();
@@ -53,7 +43,6 @@ async fn main() -> Result<()> {
         sub_handles.push(h);
     }
     
-    
     while running.load(Ordering::SeqCst) {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
@@ -62,7 +51,6 @@ async fn main() -> Result<()> {
             let _ = EvtClose(h?);
         }
     }
-
     println!("[.] Done.");
     
     Ok(())

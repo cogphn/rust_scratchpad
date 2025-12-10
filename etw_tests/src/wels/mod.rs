@@ -1,6 +1,6 @@
 use windows::{
     core::{Result, HSTRING, PCWSTR},
-    Win32::{self, System::EventLog::*, Foundation::{ERROR_NO_MORE_ITEMS, GetLastError}},
+    Win32::{self, System::EventLog::*},
 };
 use std::{ffi::c_void, ptr};
 
