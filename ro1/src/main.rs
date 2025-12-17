@@ -53,7 +53,8 @@ async fn main() -> Result<()> {
     for c in elog_scope {
         let h = wels::get_evt_sub_handle(&c.channel_name, &c.query);
         if h.clone()?.is_invalid() {
-            let sub_err = windows::core::Error::from_win32(); //TODO: upgrade to windows 0.62.2
+            //let sub_err = windows::core::Error::from_win32(); // 
+            let sub_err = windows::core::Error::from_thread(); // ref: https://github.com/microsoft/windows-rs/pull/3701
             eprintln!("    [!] failed to subscribe to event {:?} : {:?}", c.channel_name, sub_err);
         }
         sub_handles.push(h);
