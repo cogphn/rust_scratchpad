@@ -60,11 +60,8 @@ fn get_evt_Channels() -> Vec<String> {
                 },
                 Err(_e) => {
                     let err = GetLastError();
-                    //eprintln!("{:?}", err.0);
 
                     if err.0 == 122 { //ERROR_INSUFFICIENT_BUFFER
-                        //buffer_size = buffer_used;
-                        //let channelpathbuffer: Option<&mut [u16]> = Some(&mut [0u16]);
                         let mut channelpathbuffer = [0u16; 256];
                         match EvtNextChannelPath(
                             h_enum,
@@ -84,11 +81,9 @@ fn get_evt_Channels() -> Vec<String> {
                     } else if err.0 == 259  {
                         eprintln!("[!][ERR][ERROR_NO_MORE_ITEMS]{:?}", err);
                         break;
-                        //return Ok(())
                     } else {
                         eprintln!("[!][ERR] {:?}", err);
                         break;
-                        //return Ok(())
                     }
                 }
             } // match
@@ -148,11 +143,8 @@ fn main() -> windows::core::Result<()> {
                 },
                 Err(_e) => {
                     let err = GetLastError();
-                    //eprintln!("{:?}", err.0);
 
                     if err.0 == 122 { //ERROR_INSUFFICIENT_BUFFER
-                        //buffer_size = buffer_used;
-                        //let channelpathbuffer: Option<&mut [u16]> = Some(&mut [0u16]);
                         let mut channelpathbuffer = [0u16; 256];
                         match EvtNextChannelPath(
                             h_enum,
