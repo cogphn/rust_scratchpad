@@ -11,3 +11,5 @@ mpush/mconfig.json
 pw.txt
 *.7z
 ro1/sampleout.json
+testaya2/.cargo/*
+testaya2/target/*
