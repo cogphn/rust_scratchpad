@@ -8,7 +8,8 @@ pub struct DotnetEvent {
     pub event_id: u16,
     pub appdomain_id: Option<u64>,
     pub assembly_flags: Option<u32>,
-    pub appdomain_name: Option<String>
+    pub appdomain_name: Option<String>,
+    //pub process_id: Option<u64>
 
 }
 

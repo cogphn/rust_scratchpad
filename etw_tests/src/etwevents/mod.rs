@@ -177,7 +177,8 @@ fn parse_dotnet_event(schema: &Schema, record: &EventRecord) {
         event_description: event_desc.to_string(),
         appdomain_id: parser.try_parse("AppDomainID").ok(),
         assembly_flags: parser.try_parse("AssemblyFlags").ok(),
-        appdomain_name: parser.try_parse("AppDomainName").ok()
+        appdomain_name: parser.try_parse("AppDomainName").ok(),
+        //process_id: parser.try_parse("ProcessID").ok()
     };
 
     let dotnetstr = serde_json::to_string(&dotnetevent).unwrap();
