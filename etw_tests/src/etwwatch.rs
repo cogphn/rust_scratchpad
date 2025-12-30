@@ -5,6 +5,7 @@ pub mod etwevents;
 #[tokio::main]
 async fn main() {
     
+    println!("[*] starting... ");
     let running: Arc<AtomicBool> = Arc::new(AtomicBool::new(true));
     let rc = running.clone();
     let rc1 = running.clone();

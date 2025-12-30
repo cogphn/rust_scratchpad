@@ -6,9 +6,16 @@ pub struct DotnetEvent {
     pub ts_str: String,
     pub event_description: String,
     pub event_id: u16,
-    pub appdomain_id: Option<u64>,
+    pub app_domain_id: Option<u64>,
     pub assembly_flags: Option<u32>,
-    pub appdomain_name: Option<String>
+    pub app_domain_name: Option<String>,
+    //pub process_id: Option<u64>
+    pub allocated: Option<u64>, // 83 - AppDomainResourceManagementMemAllocatedArgs
+    pub clr_instance_id: Option<u16>, //83 - AppDomainResourceManagementMemAllocatedArgs
+    pub managed_thread_id: Option<u64>,
+    pub flags: Option<u32>,
+    pub os_thread_id: Option<u32>,
+    
 
 }
 
