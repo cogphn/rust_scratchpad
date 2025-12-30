@@ -6,3 +6,10 @@ edition = "2024"
 [dependencies]
 futures = "0.3.31"
 notify = "8.2.0"
+ssh2 = "0.9.5"
+
+
+
+[[bin]]
+name="buildfq"
+path="src/build_fq.rs"
