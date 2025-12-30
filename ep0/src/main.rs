@@ -46,5 +46,3 @@ async fn async_watch<P: AsRef<Path>>(path: P) -> notify::Result<()> {
 
     Ok(())
 }
-
-
