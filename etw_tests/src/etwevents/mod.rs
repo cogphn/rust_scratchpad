@@ -165,6 +165,9 @@ fn parse_dotnet_event(schema: &Schema, record: &EventRecord) {
     let parser = Parser::create(record, schema);
     let event_desc = match record.event_id() {
         156 => "LoaderAppDomainLoad",
+        83 => "AppDomainResourceManagementMemAllocated",
+        85 => "AppDomainResourceManagementThreadCreated",
+        87 => "AppDomainResourceManagementDomainEnter",
         _ => "Other"
     };
 
@@ -175,10 +178,17 @@ fn parse_dotnet_event(schema: &Schema, record: &EventRecord) {
         ts_str: timestamp,
         event_id: record.event_id(),
         event_description: event_desc.to_string(),
-        appdomain_id: parser.try_parse("AppDomainID").ok(),
+        app_domain_id: parser.try_parse("AppDomainID").ok(), //156, 83
         assembly_flags: parser.try_parse("AssemblyFlags").ok(),
-        appdomain_name: parser.try_parse("AppDomainName").ok(),
+        app_domain_name: parser.try_parse("AppDomainName").ok(),
+        
         //process_id: parser.try_parse("ProcessID").ok()
+
+        allocated: parser.try_parse("Allocated").ok(),
+        clr_instance_id: parser.try_parse("CrlInstanceID").ok(),
+        managed_thread_id: parser.try_parse("ManagedThreadID").ok(),
+        flags: parser.try_parse("Flags").ok(),
+        os_thread_id: parser.try_parse("OSThreadId").ok()
     };
 
     let dotnetstr = serde_json::to_string(&dotnetevent).unwrap();
@@ -528,7 +538,7 @@ pub fn start_etw_providers() -> Result<UserTrace, TraceError> {
     //let reg_eid_filter = EventFilter::ByEventIds(vec![1,3,5,6]);
     //let file_eid_filter = EventFilter::ByEventIds(vec![30, 28, 26]);
     
-    let dotnetruntime_filter = EventFilter::ByEventIds(vec![156]);
+    let dotnetruntime_filter = EventFilter::ByEventIds(vec![156, 85]);
 
     /*
     let win_dns_provider = Provider::by_guid("1c95126e-7eea-49a9-a3fe-a378b03ddb4d") // Microsoft-Windows-DNS-Client
