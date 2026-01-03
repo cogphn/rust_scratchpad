@@ -148,6 +148,64 @@ fn parse_etw_file_event (schema: &Schema, record: &EventRecord) {
 
 }
 
+fn dotnetruntimerundown_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
+    N_EVENTS.fetch_add(1, Ordering::SeqCst);
+    match schema_locator.event_schema(record){
+        Err(err) => {
+            println!("[!] unable to get the ETW schema for a dotnet runtime rundown event: {:?}", err);
+        },
+        Ok(schema) => {
+            parse_dotnet_rundown_event(&schema, record);
+        }
+    }
+}
+
+fn parse_dotnet_rundown_event(schema: &Schema, record: &EventRecord) {
+    let parser = Parser::create(record, schema);
+    let event_desc = match record.event_id() {
+        157 => "LoaderAppDomainDCStart",
+        158 => "LoaderAppDomainDCStop",
+        187 => "RuntimeStart",        
+        _ => "Other"
+    };
+
+    let dtnow = chrono::Utc::now();
+    let timestamp = dtnow.to_rfc3339_opts(chrono::format::SecondsFormat::Secs, true);
+
+    let dotnetruntimerundownevent = templates::DotnetRuntimeRundownEvent {
+        ts_str: timestamp,
+        event_id: record.event_id(),
+        event_description: event_desc.to_string(),
+        
+        app_domain_id: parser.try_parse("AppDomainID").ok(),
+        app_domain_flags: parser.try_parse("AppDomainFlags").ok(),
+        app_domain_name: parser.try_parse("AppDomainName").ok(),
+        app_domain_index: parser.try_parse("AppDomainIndex").ok(),
+        clr_instance_id: parser.try_parse("ClrInstanceID").ok(),
+        //RuntimeStartArgs
+        sku: parser.try_parse("Sku").ok(),
+        bcl_major_version: parser.try_parse("BclMajorVersion").ok(),
+        bcl_minor_version: parser.try_parse("BclMinorVersion").ok(),
+        bcl_build_number: parser.try_parse("BclBuildNumber").ok(),
+        bcl_qfe_number: parser.try_parse("BclQfeNumber").ok(),
+        vm_major_version: parser.try_parse("VMMajorVersion").ok(),
+        vm_minor_version: parser.try_parse("VMMinorVersion").ok(),
+        vm_build_number: parser.try_parse("VMQfeNumber").ok(),
+        vm_qfe_number: parser.try_parse("VMQfeNumber").ok(),
+        startup_flags: parser.try_parse("StartupFlags").ok(),
+        startup_mode: parser.try_parse("StartupMode").ok(),
+        command_line: parser.try_parse("CommandLine").ok(),
+        com_object_guid: parser.try_parse("ComObjectGuid").ok(),
+        runtime_dll_path: parser.try_parse("RuntimeDllPath").ok()
+
+        
+    };
+
+    let dotnetstr = serde_json::to_string(&dotnetruntimerundownevent).unwrap();
+    println!("{}", dotnetstr);
+}
+
+
 
 fn dotnetruntime_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
     N_EVENTS.fetch_add(1, Ordering::SeqCst);
@@ -193,8 +251,6 @@ fn parse_dotnet_event(schema: &Schema, record: &EventRecord) {
 
     let dotnetstr = serde_json::to_string(&dotnetevent).unwrap();
     println!("{}", dotnetstr);
-
-
 }
 
 fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
@@ -539,6 +595,7 @@ pub fn start_etw_providers() -> Result<UserTrace, TraceError> {
     //let file_eid_filter = EventFilter::ByEventIds(vec![30, 28, 26]);
     
     let dotnetruntime_filter = EventFilter::ByEventIds(vec![156, 85]);
+    let dotnetruntimerundown_filter = EventFilter::ByEventIds(vec![157, 158, 187]);
 
     /*
     let win_dns_provider = Provider::by_guid("1c95126e-7eea-49a9-a3fe-a378b03ddb4d") // Microsoft-Windows-DNS-Client
@@ -572,8 +629,16 @@ pub fn start_etw_providers() -> Result<UserTrace, TraceError> {
         .trace_flags(TraceFlags::EVENT_ENABLE_PROPERTY_PROCESS_START_KEY)
         .build();
 
+    let dotnetruntimerundown_provider = Provider::by_guid(0xa669021c_c450_4609_a035_5af59af4df18)
+        .add_filter(dotnetruntimerundown_filter)
+        .add_callback(dotnetruntimerundown_callback)
+        //.trace_flags(TraceFlags::EVENT_ENABLE_PROPERTY_PROCESS_START_KEY)
+        .build();
+
+
     let trace = UserTrace::new()
         .enable(dotnetruntime_provider)
+        .enable(dotnetruntimerundown_provider)
         .start_and_process();
 
     trace

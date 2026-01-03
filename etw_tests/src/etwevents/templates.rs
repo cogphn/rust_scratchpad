@@ -1,6 +1,37 @@
 use serde::{Deserialize, Serialize};
 
 
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DotnetRuntimeRundownEvent {
+    pub ts_str: String,
+    pub event_description: String,
+    pub event_id: u16,
+
+    pub app_domain_id: Option<u64>,
+    pub app_domain_flags: Option<u32>,    
+    pub app_domain_name: Option<String>,    
+    pub app_domain_index: Option<u32>,    
+    pub clr_instance_id: Option<u16>,
+    
+    //RuntimeStartArgs
+    pub sku: Option<u16>, 
+    pub bcl_major_version: Option<u16>,
+    pub bcl_minor_version: Option<u16>,
+    pub bcl_build_number: Option<u16>, 
+    pub bcl_qfe_number: Option<u16>, 
+    pub vm_major_version: Option<u16>,
+    pub vm_minor_version: Option<u16>,
+    pub vm_build_number: Option<u16>, 
+    pub vm_qfe_number: Option<u16>, 
+    pub startup_flags: Option<u16>,
+    pub startup_mode: Option<u8>, 
+    pub command_line: Option<String>,
+    pub com_object_guid: Option<String>, 
+    pub runtime_dll_path: Option<String> 
+    
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DotnetEvent {
     pub ts_str: String,
@@ -16,7 +47,6 @@ pub struct DotnetEvent {
     pub flags: Option<u32>,
     pub os_thread_id: Option<u32>,
     
-
 }
 
 #[derive(Serialize, Deserialize, Debug)]
