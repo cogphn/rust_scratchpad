@@ -148,6 +148,45 @@ fn parse_etw_file_event (schema: &Schema, record: &EventRecord) {
 
 }
 
+fn winkernproc_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
+    N_EVENTS.fetch_add(1, Ordering::SeqCst);
+    match schema_locator.event_schema(record){
+        Err(err) => {
+            println!("[!] unable to get the ETW schema for a kernel process event: {:?}", err);
+        },
+        Ok(schema) => {
+            parse_kernproc_event(&schema, record);
+        }
+    }
+}
+
+
+fn parse_kernproc_event(schema: &Schema, record: &EventRecord) {
+    let parser = Parser::create(record, schema);
+    let event_desc = match record.event_id() {
+        5 => "ImageLoad",
+        _ => "Other"
+    };
+
+    let dtnow = chrono::Utc::now();
+    let timestamp = dtnow.to_rfc3339_opts(chrono::format::SecondsFormat::Secs, true);
+
+    let kernproc_event = templates::WinKernProcImageLoad {
+        ts_str: timestamp,
+        event_id: record.event_id(),
+        event_description: event_desc.to_string(),
+
+        process_id: parser.try_parse("ProcessID").ok(),
+        image_check_sum: parser.try_parse("ImageCheckSum").ok(),
+        time_date_stamp: parser.try_parse("TimeDateStamp").ok(),
+        image_name: parser.try_parse("ImageName").ok()
+    };
+    let evt = serde_json::to_string(&kernproc_event).unwrap();
+    println!("{}", evt);
+
+}
+
+
 fn dotnetruntimerundown_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
     N_EVENTS.fetch_add(1, Ordering::SeqCst);
     match schema_locator.event_schema(record){
@@ -172,37 +211,51 @@ fn parse_dotnet_rundown_event(schema: &Schema, record: &EventRecord) {
     let dtnow = chrono::Utc::now();
     let timestamp = dtnow.to_rfc3339_opts(chrono::format::SecondsFormat::Secs, true);
 
-    let dotnetruntimerundownevent = templates::DotnetRuntimeRundownEvent {
-        ts_str: timestamp,
-        event_id: record.event_id(),
-        event_description: event_desc.to_string(),
-        
-        app_domain_id: parser.try_parse("AppDomainID").ok(),
-        app_domain_flags: parser.try_parse("AppDomainFlags").ok(),
-        app_domain_name: parser.try_parse("AppDomainName").ok(),
-        app_domain_index: parser.try_parse("AppDomainIndex").ok(),
-        clr_instance_id: parser.try_parse("ClrInstanceID").ok(),
-        //RuntimeStartArgs
-        sku: parser.try_parse("Sku").ok(),
-        bcl_major_version: parser.try_parse("BclMajorVersion").ok(),
-        bcl_minor_version: parser.try_parse("BclMinorVersion").ok(),
-        bcl_build_number: parser.try_parse("BclBuildNumber").ok(),
-        bcl_qfe_number: parser.try_parse("BclQfeNumber").ok(),
-        vm_major_version: parser.try_parse("VMMajorVersion").ok(),
-        vm_minor_version: parser.try_parse("VMMinorVersion").ok(),
-        vm_build_number: parser.try_parse("VMQfeNumber").ok(),
-        vm_qfe_number: parser.try_parse("VMQfeNumber").ok(),
-        startup_flags: parser.try_parse("StartupFlags").ok(),
-        startup_mode: parser.try_parse("StartupMode").ok(),
-        command_line: parser.try_parse("CommandLine").ok(),
-        com_object_guid: parser.try_parse("ComObjectGuid").ok(),
-        runtime_dll_path: parser.try_parse("RuntimeDllPath").ok()
+    match record.event_id() {
+        187 => {
+            let dotnetruntimerundownevent_runtimestart = templates::DotnetRuntimeRundownRuntimeStartArgs {
+                ts_str: timestamp,
+                event_id: record.event_id(),
+                event_description: event_desc.to_string(),                
+                
+                clr_instance_id: parser.try_parse("ClrInstanceID").ok(),
+                sku: parser.try_parse("Sku").ok(),
+                bcl_major_version: parser.try_parse("BclMajorVersion").ok(),
+                bcl_minor_version: parser.try_parse("BclMinorVersion").ok(),
+                bcl_build_number: parser.try_parse("BclBuildNumber").ok(),
+                bcl_qfe_number: parser.try_parse("BclQfeNumber").ok(),
+                vm_major_version: parser.try_parse("VMMajorVersion").ok(),
+                vm_minor_version: parser.try_parse("VMMinorVersion").ok(),
+                vm_build_number: parser.try_parse("VMQfeNumber").ok(),
+                vm_qfe_number: parser.try_parse("VMQfeNumber").ok(),
+                startup_flags: parser.try_parse("StartupFlags").ok(),
+                startup_mode: parser.try_parse("StartupMode").ok(),
+                command_line: parser.try_parse("CommandLine").ok(),
+                com_object_guid: parser.try_parse("ComObjectGuid").ok(),
+                runtime_dll_path: parser.try_parse("RuntimeDllPath").ok()
+            };
+            let dotnetstr = serde_json::to_string(&dotnetruntimerundownevent_runtimestart).unwrap();
+            println!("{}", dotnetstr);
+        },
+        _ => {
+            let dotnetruntimerundownevent = templates::DotnetRuntimeRundownEvent {
+                ts_str: timestamp,
+                event_id: record.event_id(),
+                event_description: event_desc.to_string(),
+                
+                app_domain_id: parser.try_parse("AppDomainID").ok(),
+                app_domain_flags: parser.try_parse("AppDomainFlags").ok(),
+                app_domain_name: parser.try_parse("AppDomainName").ok(),
+                app_domain_index: parser.try_parse("AppDomainIndex").ok(),
+                clr_instance_id: parser.try_parse("ClrInstanceID").ok()            
+            };
 
-        
-    };
+            let dotnetstr = serde_json::to_string(&dotnetruntimerundownevent).unwrap();
+            println!("{}", dotnetstr);
+        }
+    } // match
 
-    let dotnetstr = serde_json::to_string(&dotnetruntimerundownevent).unwrap();
-    println!("{}", dotnetstr);
+    
 }
 
 
@@ -596,6 +649,7 @@ pub fn start_etw_providers() -> Result<UserTrace, TraceError> {
     
     let dotnetruntime_filter = EventFilter::ByEventIds(vec![156, 85]);
     let dotnetruntimerundown_filter = EventFilter::ByEventIds(vec![157, 158, 187]);
+    let winkernproc_filter = EventFilter::ByEventIds(vec![5]); // ImageLoad 
 
     /*
     let win_dns_provider = Provider::by_guid("1c95126e-7eea-49a9-a3fe-a378b03ddb4d") // Microsoft-Windows-DNS-Client
@@ -635,10 +689,15 @@ pub fn start_etw_providers() -> Result<UserTrace, TraceError> {
         //.trace_flags(TraceFlags::EVENT_ENABLE_PROPERTY_PROCESS_START_KEY)
         .build();
 
+    let mswinkernproc_provider = Provider::by_guid(0x_22fb2cd6_0e7b_422b_a0c7_2fad1fd0e716)
+        .add_filter(winkernproc_filter)
+        .add_callback(winkernproc_callback)
+        .build();
 
     let trace = UserTrace::new()
         .enable(dotnetruntime_provider)
         .enable(dotnetruntimerundown_provider)
+        .enable(mswinkernproc_provider)
         .start_and_process();
 
     trace
