@@ -7,6 +7,7 @@ use tokio::runtime::Runtime;
 use libsql::params;
 use std::sync::atomic::{AtomicBool, Ordering};
 //use tokio::runtime;
+use log::debug;
 
 pub const CACHE_SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS events (  
@@ -130,7 +131,8 @@ pub async fn last_write(num_initial_rows: i64) -> Result<(), Box<dyn std::error:
         return Ok(());
     }
 
-    println!("[DBG - cache::last_write]  current offset: {}, initial_rows: {}", current_offset, num_initial_rows);
+    //println!("[DBG - cache::last_write]  current offset: {}, initial_rows: {}", current_offset, num_initial_rows);
+    debug!("[cache::last_write]  current offset: {}, initial_rows: {}", current_offset, num_initial_rows);
     let batchsize: i64 = 1000;
 
     loop {
@@ -213,7 +215,8 @@ pub fn db_disk_sync(running:Arc<AtomicBool>, num_initial_rows: i64) -> Result<()
                 Err(_) => 0
             };
 
-            println!("[DBG - cache::db_disk_sync]; offset: {}, initial_rows: {}", poffset, num_initial_rows);
+            //println!("[DBG - cache::db_disk_sync]; offset: {}, initial_rows: {}", poffset, num_initial_rows);
+            debug!("[cache::db_disk_sync]; offset: {}, initial_rows: {}", poffset, num_initial_rows);
 
             let mut results = c
                 .query(select_query, params![batchsize, poffset])
