@@ -23,3 +23,4 @@ env_logger = "0.11.8"
 ferrisetw = { version="1.2.0", features=["time_rs"] }
 time = "0.3.43"
 netstat-esr = "0.8.1"
+log = "0.4.29"
