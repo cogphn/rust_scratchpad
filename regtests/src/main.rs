@@ -57,24 +57,6 @@ fn main()  -> Result<(), Box<dyn std::error::Error>>  {
 
         }
     
-    
-    /*
-    let info = cur_ver.query_info()?;
-    println!("info = {:?}", info);
-    let mt = info.get_last_write_time_system();
-    println!(
-        "last_write_time as windows_sys::Win32::Foundation::SYSTEMTIME = {}-{:02}-{:02} {:02}:{:02}:{:02}",
-        mt.wYear, mt.wMonth, mt.wDay, mt.wHour, mt.wMinute, mt.wSecond
-    );
-    */
-
-
-    // enable `chrono` feature on `winreg` to make this work
-    // println!(
-    //     "last_write_time as chrono::NaiveDateTime = {}",
-    //     info.get_last_write_time_chrono()
-    // );
-
 
     println!("[.] Done!");
     Ok(())
