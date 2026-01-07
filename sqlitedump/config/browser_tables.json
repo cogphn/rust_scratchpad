@@ -1,0 +1,201 @@
+{
+    "tables":[
+        {
+            "name":"chrome_downloads_url_chains",
+            "config":
+            { "query":"select id, chain_index, url from downloads_url_chains" , 
+                "fields":
+                [
+                    {"name":"id","ord":0,"coltype":"str", "nullable":0},
+                    {"name":"chain_index","ord":1,"coltype":"str", "nullable":0},
+                    {"name":"url","ord":2,"coltype":"str", "nullable":0}
+                ]
+            }
+        },
+        {
+            "name":"chrome_urls",
+            "config":{
+                "query":"select id, url, title, visit_count, typed_count, last_visit_time, hidden from urls",
+                "fields": [
+                    {"name":"id", "ord":0,"coltype":"str", "nullable":1},
+                    {"name":"url", "ord":1,"coltype":"str", "nullable":1},
+                    {"name":"title", "ord":2,"coltype":"str", "nullable":1},
+                    {"name":"visit_count", "ord":3,"coltype":"str", "nullable":1},
+                    {"name":"typed_count", "ord":4,"coltype":"str", "nullable":1},
+                    {"name":"last_visit_time", "ord":5,"coltype":"chrome_ts", "nullable":1},
+                    {"name":"hidden", "ord":6,"coltype":"str", "nullable":1}
+                ]
+            }
+        },
+        {
+            "name":"chrome_downloads",
+            "config":{
+                "query":"select id,guid,current_path,target_path,start_time,received_bytes,total_bytes,state,danger_type,interrupt_reason,hash,end_time,opened,last_access_time,transient,referrer,site_url,tab_url,tab_referrer_url,http_method,by_ext_id,by_ext_name,etag,last_modified,mime_type,original_mime_type from downloads",
+                "fields": [
+                    {"name":"id", "ord":0,"coltype":"str", "nullable":1},
+                    {"name":"guid", "ord":1,"coltype":"str", "nullable":1},
+                    {"name":"current_path", "ord":2,"coltype":"str", "nullable":1},
+                    {"name":"target_path", "ord":3,"coltype":"str", "nullable":1},
+                    {"name":"start_time", "ord":4,"coltype":"chrome_ts", "nullable":1},
+                    {"name":"received_bytes", "ord":5,"coltype":"str", "nullable":1},
+                    {"name":"total_bytes", "ord":6,"coltype":"str", "nullable":1},
+                    {"name":"state", "ord":7,"coltype":"str", "nullable":1},
+                    {"name":"danger_type", "ord":8,"coltype":"str", "nullable":1},
+                    {"name":"interrupt_reason", "ord":9,"coltype":"str", "nullable":1},
+                    {"name":"hash", "ord":10,"coltype":"str", "nullable":1},
+                    {"name":"end_time", "ord":11,"coltype":"chrome_ts", "nullable":1},
+                    {"name":"opened", "ord":12,"coltype":"str", "nullable":1},
+                    {"name":"last_access_time", "ord":13,"coltype":"chrome_ts", "nullable":1},
+                    {"name":"transient", "ord":14,"coltype":"str", "nullable":1},
+                    {"name":"referrer", "ord":15,"coltype":"str", "nullable":1},
+                    {"name":"site_url", "ord":16,"coltype":"str", "nullable":1},
+                    {"name":"tab_url", "ord":17,"coltype":"str", "nullable":1},
+                    {"name":"tab_referrer_url", "ord":18,"coltype":"str", "nullable":1},
+                    {"name":"http_method", "ord":19,"coltype":"str", "nullable":1},
+                    {"name":"by_ext_id", "ord":20,"coltype":"str", "nullable":1},
+                    {"name":"by_ext_name", "ord":21,"coltype":"str", "nullable":1},
+                    {"name":"etag", "ord":22,"coltype":"str", "nullable":1},
+                    {"name":"last_modified", "ord":23,"coltype":"chrome_ts", "nullable":1},
+                    {"name":"mime_type", "ord":24,"coltype":"str", "nullable":1},
+                    {"name":"original_mime_type", "ord":25,"coltype":"str", "nullable":1}
+                ]
+            }
+        },
+        {
+            "name":"chrome_segments",
+            "config":{
+                "query":"select a.id as segment_id, a.name as segment_name, a.url_id, b.url, b.title, b.visit_count, b.typed_count, b.last_visit_time, b.hidden from segments a left join urls b on a.url_id = b.id",
+                "fields":[
+                    {"name":"id", "ord":0,"coltype":"str", "nullable":1},
+                    {"name":"segment_name", "ord":1,"coltype":"str", "nullable":1},
+                    {"name":"url_id", "ord":2,"coltype":"str", "nullable":1},
+                    {"name":"url", "ord":3,"coltype":"str", "nullable":1},
+                    {"name":"title", "ord":4,"coltype":"str", "nullable":1},
+                    {"name":"visit_count", "ord":5,"coltype":"str", "nullable":1},
+                    {"name":"typed_count", "ord":6,"coltype":"str", "nullable":1},
+                    {"name":"last_visit_time", "ord":7,"coltype":"chrome_ts", "nullable":1},
+                    {"name":"hidden", "ord":8,"coltype":"str", "nullable":1}
+                ]
+            }
+        },
+        {
+            "name":"chrome_visits",
+            "config":{
+                "query":"select a.id as visits_id, a.url as url_id, a.visit_time, a.from_visit, a.transition, a.segment_id, a.visit_duration, a.incremented_omnibox_typed_score, a.opener_visit, b.url as urls_url, b.title, b.visit_count, b.typed_count, b.last_visit_time, b.hidden from visits a left join urls b on a.url = b.id left join segments c on a.segment_id = c.id",
+                "fields":[
+                    {"name":"visits_id", "ord":0, "coltype":"str", "nullable":0},
+                    {"name":"url_id", "ord":2, "coltype":"str", "nullable":0},
+                    {"name":"visit_time", "ord":3, "coltype":"chrome_ts", "nullable":1},
+                    {"name":"from_visit", "ord":4, "coltype":"str", "nullable":1},
+                    {"name":"transition", "ord":5, "coltype":"str", "nullable":1},
+                    {"name":"segment_id", "ord":6, "coltype":"str", "nullable":1},
+                    {"name":"visit_duration", "ord":7, "coltype":"str", "nullable":1},
+                    {"name":"incremented_omnibox_typed_score", "ord":8, "coltype":"str", "nullable":1},
+                    {"name":"opener_visit", "ord":9, "coltype":"str", "nullable":1},
+                    {"name":"urls_url", "ord":10, "coltype":"str", "nullable":1},
+                    {"name":"title", "ord":11, "coltype":"str", "nullable":1},
+                    {"name":"visit_count", "ord":12, "coltype":"str", "nullable":1},
+                    {"name":"typed_count", "ord":13, "coltype":"str", "nullable":1},
+                    {"name":"last_visit_time", "ord":14, "coltype":"chrome_ts", "nullable":1},
+                    {"name":"hidden", "ord":15, "coltype":"str", "nullable":1}
+                ]
+            }
+        },
+        {
+            "name":"moz_places",
+            "config":{
+                "query":"select id,url,title,rev_host,visit_count,hidden,typed,frecency, last_visit_date,guid,foreign_count,url_hash,description,preview_image_url,origin_id from moz_places",
+                "fields":[
+                    {"name":"id", "ord":0, "coltype":"str", "nullable":0},
+                    {"name":"url", "ord":1, "coltype":"str", "nullable":1},
+                    {"name":"title", "ord":2, "coltype":"str", "nullable":1},
+                    {"name":"rev_host", "ord":3, "coltype":"str", "nullable":1},
+                    {"name":"visit_count", "ord":4, "coltype":"str", "nullable":1},
+                    {"name":"hidden", "ord":5, "coltype":"str", "nullable":1},
+                    {"name":"typed", "ord":6, "coltype":"str", "nullable":1},
+                    {"name":"frecency", "ord":7, "coltype":"str", "nullable":1},
+                    {"name":"last_visit_date", "ord":8, "coltype":"moz_ts", "nullable":1},
+                    {"name":"guid", "ord":9, "coltype":"str", "nullable":1},
+                    {"name":"foreign_count", "ord":10, "coltype":"str", "nullable":1},
+                    {"name":"url_hash", "ord":11, "coltype":"str", "nullable":1},
+                    {"name":"description", "ord":12, "coltype":"str", "nullable":1},
+                    {"name":"preview_image_url", "ord":13, "coltype":"str", "nullable":1},
+                    {"name":"origin_id", "ord":14, "coltype":"str", "nullable":1},
+                    {"name":"site_name", "ord":15, "coltype":"str", "nullable":1}
+                ]
+            }
+        },
+        {
+            "name":"moz_historyvisits",
+            "config":{
+                "query":"select a.id as hitoryvisitid, a.from_visit, a.place_id, a.visit_type, a.session, b.url, b.title, b.rev_host, b.visit_count, b.hidden, b.typed, b.frecency, b.last_visit_date, b.guid, b.foreign_count, b.url_hash, b.description, b.preview_image_url, b.origin_id from moz_historyvisits a join moz_places b on a.place_id = b.id",
+                "fields":[
+                    {"name":"hitoryvisitid", "ord":0,"coltype":"str", "nullable":1},
+                    {"name":"from_visit", "ord":1,"coltype":"str", "nullable":1},
+                    {"name":"place_id", "ord":2,"coltype":"str", "nullable":1},
+                    {"name":"visit_type", "ord":3,"coltype":"str", "nullable":1},
+                    {"name":"session", "ord":4,"coltype":"str", "nullable":1},
+                    {"name":"url", "ord":5,"coltype":"str", "nullable":1},
+                    {"name":"title", "ord":6,"coltype":"str", "nullable":1},
+                    {"name":"rev_host", "ord":7,"coltype":"str", "nullable":1},
+                    {"name":"visit_count", "ord":8,"coltype":"str", "nullable":1},
+                    {"name":"hidden", "ord":9,"coltype":"str", "nullable":1},
+                    {"name":"typed", "ord":10,"coltype":"str", "nullable":1},
+                    {"name":"frecency", "ord":11,"coltype":"str", "nullable":1},
+                    {"name":"last_visit_date", "ord":12,"coltype":"str", "nullable":1},
+                    {"name":"guid", "ord":13,"coltype":"str", "nullable":1},
+                    {"name":"foreign_count", "ord":14,"coltype":"str", "nullable":1},
+                    {"name":"url_hash", "ord":15,"coltype":"str", "nullable":1},
+                    {"name":"description", "ord":16,"coltype":"str", "nullable":1},
+                    {"name":"preview_image_url", "ord":17,"coltype":"str", "nullable":1},
+                    {"name":"origin_id", "ord":18,"coltype":"str", "nullable":1}
+                ]
+            }
+        },
+        {
+            "name":"moz_annos",
+            "config": {
+                "query": "select a.url, a.title, a.rev_host, a.visit_count, a.hidden, a.typed, a.frecency, a.last_visit_date, a.guid, a.foreign_count, a.url_hash, a.description, a.preview_image_url, a.origin_id, b.id, b.anno_attribute_id, b.content, b.flags, b.expiration, b.type, b.dateAdded, b.lastModified from moz_places a join moz_annos b on a.id=b.place_id",
+                "fields": [
+                    {"name":"url", "ord":0,"coltype":"str", "nullable":1},
+                    {"name":"title", "ord":1,"coltype":"str", "nullable":1},
+                    {"name":"rev_host", "ord":2,"coltype":"str", "nullable":1},
+                    {"name":"visit_count", "ord":3,"coltype":"str", "nullable":1},
+                    {"name":"hidden", "ord":4,"coltype":"str", "nullable":1},
+                    {"name":"typed", "ord":5,"coltype":"str", "nullable":1},
+                    {"name":"frecency", "ord":6,"coltype":"str", "nullable":1},
+                    {"name":"last_visit_date", "ord":7,"coltype":"moz_ts", "nullable":1},
+                    {"name":"guid", "ord":8,"coltype":"str", "nullable":1},
+                    {"name":"foreign_count", "ord":9,"coltype":"str", "nullable":1},
+                    {"name":"url_hash", "ord":10,"coltype":"str", "nullable":1},
+                    {"name":"description", "ord":11,"coltype":"str", "nullable":1},
+                    {"name":"preview_image_url", "ord":12,"coltype":"str", "nullable":1},
+                    {"name":"origin_id", "ord":13,"coltype":"str", "nullable":1},
+                    {"name":"id", "ord":14,"coltype":"str", "nullable":1},
+                    {"name":"anno_attribute_id", "ord":15,"coltype":"str", "nullable":1},
+                    {"name":"content", "ord":16,"coltype":"str", "nullable":1},
+                    {"name":"flags", "ord":17,"coltype":"str", "nullable":1},
+                    {"name":"expiration","ord":18,"coltype":"moz_ts", "nullable":1},
+                    {"name":"type", "ord":19,"coltype":"str", "nullable":1},
+                    {"name":"dateAdded", "ord":20,"coltype":"moz_ts", "nullable":1},
+                    {"name":"lastModified", "ord":21,"coltype":"moz_ts", "nullable":1}
+                ]
+            }
+        },
+        {
+            "name":"edge_urls",
+            "config":{
+                "query":"select id, url, title, visit_count, typed_count, last_visit_time, hidden from urls",
+                "fields": [
+                    {"name":"id", "ord":0,"coltype":"str", "nullable":1},
+                    {"name":"url", "ord":1,"coltype":"str", "nullable":1},
+                    {"name":"title", "ord":2,"coltype":"str", "nullable":1},
+                    {"name":"visit_count", "ord":3,"coltype":"str", "nullable":1},
+                    {"name":"typed_count", "ord":4,"coltype":"str", "nullable":1},
+                    {"name":"last_visit_time", "ord":5,"coltype":"chrome_ts", "nullable":1},
+                    {"name":"hidden", "ord":6,"coltype":"str", "nullable":1}
+                ]
+            }
+        }
+    ]
+}

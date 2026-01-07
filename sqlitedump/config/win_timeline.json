@@ -1,0 +1,43 @@
+{
+    "tables":[
+        {
+            "name":"ActivitiesCache",
+            "config":
+            { "query":"select AppId,PackageIdHash,AppActivityId,ActivityType,ActivityStatus,ParentActivityId,Tag,\"Group\",MatchId,LastModifiedTime,ExpirationTime,Payload,Priority,IsLocalOnly,PlatformDeviceId,DdsDeviceId,CreatedInCloud,StartTime,EndTime,LastModifiedOnClient,GroupAppActivityId,ClipboardPayload,EnterpriseId,OriginalPayload,UserActionState,IsRead,OriginalLastModifiedOnClient,GroupItems,LocalExpirationTime,ETag from activity" , 
+                "fields":
+                [
+                    {"name":"AppId", "ord":0,"coltype":"str", "nullable":1},
+                    {"name":"PackageIdHash", "ord":1,"coltype":"str", "nullable":1},
+                    {"name":"AppActivityId", "ord":2,"coltype":"str", "nullable":1},
+                    {"name":"ActivityType", "ord":3,"coltype":"str", "nullable":1},
+                    {"name":"ActivityStatus", "ord":4,"coltype":"str", "nullable":1},
+                    {"name":"ParentActivityId", "ord":5,"coltype":"str", "nullable":1},
+                    {"name":"Tag", "ord":6,"coltype":"str", "nullable":1},
+                    {"name":"Group", "ord":7,"coltype":"str", "nullable":1},
+                    {"name":"MatchId", "ord":8,"coltype":"str", "nullable":1},
+                    {"name":"LastModifiedTime", "ord":9,"coltype":"timestamp", "nullable":1},
+                    {"name":"ExpirationTime", "ord":10,"coltype":"timestamp", "nullable":1},
+                    {"name":"Payload", "ord":11,"coltype":"str", "nullable":1},
+                    {"name":"Priority", "ord":12,"coltype":"str", "nullable":1},
+                    {"name":"IsLocalOnly", "ord":13,"coltype":"str", "nullable":1},
+                    {"name":"PlatformDeviceId", "ord":14,"coltype":"str", "nullable":1},
+                    {"name":"DdsDeviceId", "ord":15,"coltype":"str", "nullable":1},
+                    {"name":"CreatedInCloud", "ord":16,"coltype":"str", "nullable":1},
+                    {"name":"StartTime", "ord":17,"coltype":"timestamp", "nullable":1},
+                    {"name":"EndTime", "ord":18,"coltype":"timestamp", "nullable":1},
+                    {"name":"LastModifiedOnClient", "ord":19,"coltype":"timestamp", "nullable":1},
+                    {"name":"GroupAppActivityId", "ord":20,"coltype":"str", "nullable":1},
+                    {"name":"ClipboardPayload", "ord":21,"coltype":"str", "nullable":1},
+                    {"name":"EnterpriseId", "ord":22,"coltype":"str", "nullable":1},
+                    {"name":"OriginalPayload", "ord":23,"coltype":"str", "nullable":1},
+                    {"name":"UserActionState", "ord":24,"coltype":"str", "nullable":1},
+                    {"name":"IsRead", "ord":25,"coltype":"str", "nullable":1},
+                    {"name":"OriginalLastModifiedOnClient", "ord":26,"coltype":"timestamp", "nullable":1},
+                    {"name":"GroupItems", "ord":27,"coltype":"str", "nullable":1},
+                    {"name":"LocalExpirationTime", "ord":28,"coltype":"timestamp", "nullable":1},
+                    {"name":"ETag", "ord":29,"coltype":"str", "nullable":1}
+                ]
+            }
+        }
+    ]
+}
