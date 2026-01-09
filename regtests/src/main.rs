@@ -23,10 +23,19 @@ fn main()  -> Result<(), Box<dyn std::error::Error>>  {
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
     let sk_txt = "SYSTEM\\CurrentControlSet\\Services";
 
-    for svc in RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey(sk_txt)?
+    let service_subkeys_result = RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey(sk_txt);
+
+
+    let service_subkeys = match service_subkeys_result {
+        Err(e) => {
+            return Err("[!] Could not open service subkey".into());
+        },
+        Ok(v) => v
+    };
+    
+    for svc in service_subkeys 
         .enum_keys().map(|x| x.unwrap())
         {
-            //println!("[DBG]: {}", svc);
             let service_subkey_text = sk_txt.to_owned() + "\\" + &svc;
             
             match hklm.open_subkey(service_subkey_text) {
