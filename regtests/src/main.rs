@@ -1,5 +1,5 @@
-use std::io;
-use std::path::Path;
+//use std::io;
+//use std::path::Path;
 use winreg::enums::*;
 use winreg::RegKey;
 use chrono::NaiveDateTime;
@@ -9,11 +9,11 @@ use chrono::NaiveDateTime;
 struct WinService {
     sk_name: String,
     display_name: String, 
-    error_control: String, 
+    error_control: u32, 
     image_path: String,
     owners: String, 
-    start: String,
-    service_type: String,
+    start: u32,
+    service_type: u32,
     key_last_modified: NaiveDateTime
 }
 
@@ -26,7 +26,7 @@ fn main()  -> Result<(), Box<dyn std::error::Error>>  {
     for svc in RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey(sk_txt)?
         .enum_keys().map(|x| x.unwrap())
         {
-            println!("[DBG]: {}", svc);
+            //println!("[DBG]: {}", svc);
             let service_subkey_text = sk_txt.to_owned() + "\\" + &svc;
             
             match hklm.open_subkey(service_subkey_text) {
@@ -41,16 +41,20 @@ fn main()  -> Result<(), Box<dyn std::error::Error>>  {
                     let s: WinService  = WinService {
                         sk_name: svc,
                         display_name: service_subkey.get_value("DisplayName").unwrap_or("".to_string()),
-                        error_control: service_subkey.get_value("ErrorControl").unwrap_or("".to_string()),
+                        error_control: service_subkey.get_value("ErrorControl").unwrap_or(0),
                         image_path: service_subkey.get_value("ImagePath").unwrap_or("".to_string()),
                         owners: service_subkey.get_value("Owners").unwrap_or("".to_string()),
-                        start:  service_subkey.get_value("Start").unwrap_or("".to_string()),
-                        service_type:  service_subkey.get_value("Type").unwrap_or("".to_string()),
+                        start:  service_subkey.get_value("Start").unwrap_or(0),
+                        service_type:  service_subkey.get_value("Type").unwrap_or(0),
                         key_last_modified: subkey_info.get_last_write_time_chrono()
                     };
-                    
 
-                    println!("{:?}, {:?}", subkey_info, s);
+                    if s.image_path != "" {
+                        println!("{:?},\n{:?}", subkey_info, s);
+                        //println!("{:?}",s.start);
+                    }
+                    
+                    
                 }
             };
 
