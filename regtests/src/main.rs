@@ -33,43 +33,48 @@ fn main()  -> Result<(), Box<dyn std::error::Error>>  {
         Ok(v) => v
     };
     
-    for svc in service_subkeys 
-        .enum_keys().map(|x| x.unwrap())
-        {
-            let service_subkey_text = sk_txt.to_owned() + "\\" + &svc;
-            
-            match hklm.open_subkey(service_subkey_text) {
-                Err(e) => {
-                    println!("[!] Error occured!!: {}", e);
-                    continue;
-                },
-                Ok(v) => {
-                    let service_subkey = v;
-                    let subkey_info = service_subkey.query_info()?;
-                    
-                    let s: WinService  = WinService {
-                        sk_name: svc,
-                        display_name: service_subkey.get_value("DisplayName").unwrap_or("".to_string()),
-                        error_control: service_subkey.get_value("ErrorControl").unwrap_or(0),
-                        image_path: service_subkey.get_value("ImagePath").unwrap_or("".to_string()),
-                        owners: service_subkey.get_value("Owners").unwrap_or("".to_string()),
-                        start:  service_subkey.get_value("Start").unwrap_or(0),
-                        service_type:  service_subkey.get_value("Type").unwrap_or(0),
-                        key_last_modified: subkey_info.get_last_write_time_chrono()
-                    };
+    let mut ret: Vec<WinService> = vec![];
 
-                    if s.image_path != "" {
-                        println!("{:?},\n{:?}", subkey_info, s);
-                        //println!("{:?}",s.start);
+    for svc in service_subkeys.enum_keys() {
+        match svc {
+            Ok(svc_sk) => {
+                let service_subkey_txt = sk_txt.to_owned() + "\\" + &svc_sk;
+                match hklm.open_subkey(service_subkey_txt) {
+                    Err(e) => {
+                        println!("[!] Error occured!!: {}", e);
+                        continue;
+                    },
+                    Ok(v) => {
+                        let service_subkey = v;
+                        let subkey_info = service_subkey.query_info()?;
+                        
+                        let s: WinService  = WinService {
+                            sk_name: svc_sk,
+                            display_name: service_subkey.get_value("DisplayName").unwrap_or("".to_string()),
+                            error_control: service_subkey.get_value("ErrorControl").unwrap_or(0),
+                            image_path: service_subkey.get_value("ImagePath").unwrap_or("".to_string()),
+                            owners: service_subkey.get_value("Owners").unwrap_or("".to_string()),
+                            start:  service_subkey.get_value("Start").unwrap_or(0),
+                            service_type:  service_subkey.get_value("Type").unwrap_or(0),
+                            key_last_modified: subkey_info.get_last_write_time_chrono()
+                        };
+                        ret.push(s);
+                        
                     }
-                    
-                    
-                }
-            };
-
-
+                };
+            },
+            Err(e) => {
+                println!("[!] error occured: {}", e);
+                continue;
+             }
         }
-    
+ 
+ 
+   }
+     
+   for r in ret {
+    println!("{:?}", r);
+   }
 
     println!("[.] Done!");
     Ok(())

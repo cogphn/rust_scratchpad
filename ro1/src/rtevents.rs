@@ -136,15 +136,31 @@ pub async fn write_services_to_cache() -> Result<(), Box<dyn std::error::Error>>
             return Err(e);
         }
     };
+    let hostname = get_hostname();
 
     for sl in service_list {
-        let er = parser::service_to_er(sl);
+        let er = parser::service_to_er(sl, &hostname);
         if let Ok(er) = er {
             let _ = cache::insert_event(&er).await;
         }
     }
 
+    Ok(())
+}
+
+pub async fn write_services_reg_to_cache() -> Result<(), Box<dyn std::error::Error>> {
     
+
+    let service_list = snapshot::get_service_list_winreg();
+
+    let hostname = get_hostname();
+
+    for sl in service_list {
+        let er = parser::service_reg_to_er(sl, &hostname);
+        if let Ok(er) = er {
+            let _ = cache::insert_event(&er).await;
+        }
+    }
 
     Ok(())
 }
