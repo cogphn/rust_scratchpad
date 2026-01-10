@@ -594,8 +594,35 @@ pub fn netconn_to_er(netconn: snapshot::Netconn) -> Result<cache::GenericEventRe
 
 }
 
+pub fn service_reg_to_er(svc: snapshot::ServiceReg, hostname: &str) -> Result<cache::GenericEventRecord, Box <dyn std::error::Error>> {
 
-pub fn service_to_er(svc: snapshot::Service) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
+    let mut ret = cache::GenericEventRecord {
+        id: None,
+        ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
+        ts_type: "regkey_mod_date".to_string(),
+        src: "SVCLISTREG".to_string(),
+        host: "*NA".to_string(),
+        context1: "*NA".to_string(),
+        context1_attrib: "display_name".to_string(),
+        context2: "*NA".to_string(),
+        context2_attrib: "image_path".to_string(),
+        context3: "*NA".to_string(),
+        context3_attrib: "subkey_name".to_string(),
+        rawevent: serde_json::to_string(&svc).unwrap()
+    };
+
+    //ret.host = rtevents::get_hostname();
+    ret.host = hostname.to_string();
+    ret.context1 = svc.display_name;
+    ret.context2 = svc.image_path;
+    ret.context3 = svc.sk_name;
+    ret.ts = svc.key_last_modified;
+
+    Ok(ret)
+}
+
+
+pub fn service_to_er(svc: snapshot::Service, hostname: &str) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
     
     let mut ret = cache::GenericEventRecord {
         id: None,
@@ -612,6 +639,7 @@ pub fn service_to_er(svc: snapshot::Service) -> Result<cache::GenericEventRecord
         rawevent: serde_json::to_string(&svc).unwrap()
     };
 
+    //println!("[DBG] {:?}", svc.install_date);
 
     match svc.install_date {
         Some(install_date) => {
@@ -623,7 +651,8 @@ pub fn service_to_er(svc: snapshot::Service) -> Result<cache::GenericEventRecord
         None => ret.ts = NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
     };
 
-    ret.host = rtevents::get_hostname();
+    //ret.host = rtevents::get_hostname();
+    ret.host = hostname.to_string();
 
     ret.context1 = match svc.name { 
         Some(name) => name,

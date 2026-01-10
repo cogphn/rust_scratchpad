@@ -1,6 +1,10 @@
 use wmi::{COMLibrary, WMIConnection};
 use netstat_esr::{get_sockets_info, AddressFamilyFlags, ProtocolFlags, ProtocolSocketInfo};
 use serde::{Serialize, Deserialize};
+use chrono::NaiveDateTime;
+use winreg::enums::*;
+use winreg::RegKey;
+use log::error;
 
 use super::rtevents;
 use super::parser;
@@ -16,6 +20,18 @@ pub struct Netconn {
     pub state: String,
     pub associated_pids: Vec<u32>, //not sure I need this if I have associated_processes
     pub associated_processes: Vec<rtevents::Process>
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ServiceReg {
+    pub sk_name: String,
+    pub display_name: String, 
+    pub error_control: u32, 
+    pub image_path: String,
+    pub owners: String, 
+    pub start: u32,
+    pub service_type: u32,
+    pub key_last_modified: NaiveDateTime
 }
 
 
@@ -143,5 +159,68 @@ pub fn get_service_list() -> Result<Vec<Service>, Box<dyn std::error::Error>> {
     let com_lib = COMLibrary::new()?;
     let wmi_conn = WMIConnection::new(com_lib)?;    
     let services: Vec<Service> = wmi_conn.query()?;
+    // TODO: enrich or dump reg list separately? :think-emoji:
     return Ok(services);
+}
+
+
+pub fn get_service_list_winreg() -> Vec<ServiceReg> {
+    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+    let sk_txt = "SYSTEM\\CurrentControlSet\\Services";
+    let mut ret: Vec<ServiceReg> = vec![];
+
+    let service_subkeys_result = RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey(sk_txt);
+
+    let service_subkeys = match service_subkeys_result {
+        Err(e) => {
+            error!("[!] error opening services subkey: {}", e);
+            return ret;
+        },
+        Ok(subkeys) => subkeys
+    };
+
+    for ssk in service_subkeys.enum_keys() {
+        match ssk {
+            Ok(svc_sk) => {
+                let service_subkey_txt = sk_txt.to_owned() + "\\" + &svc_sk;
+                match hklm.open_subkey(service_subkey_txt) {
+                    Err(e) => {
+                        error!("[!] error opening subkey for windows service: {}", e);
+                        continue;
+                    },
+                    Ok(v) => {
+                        let service_subkey = v;
+
+
+                        let service_subkey_info = match service_subkey.query_info() {
+                            Err(e) => {
+                                error!("[!] error getting registry key info: {}", e);
+                                continue;
+                            }, Ok(sski) => sski
+                        };
+
+
+                        let s: ServiceReg  = ServiceReg {
+                            sk_name: svc_sk,
+                            display_name: service_subkey.get_value("DisplayName").unwrap_or("".to_string()),
+                            error_control: service_subkey.get_value("ErrorControl").unwrap_or(0),
+                            image_path: service_subkey.get_value("ImagePath").unwrap_or("".to_string()),
+                            owners: service_subkey.get_value("Owners").unwrap_or("".to_string()),
+                            start:  service_subkey.get_value("Start").unwrap_or(0),
+                            service_type:  service_subkey.get_value("Type").unwrap_or(0),
+                            key_last_modified: service_subkey_info.get_last_write_time_chrono()
+                        };
+                        ret.push(s);
+                    }
+                }
+            },
+            Err(e) => {
+                error!("[!] error getting sub-key for windows service: {}", e);
+                continue;
+            }
+        } 
+    }
+
+    //for svc in RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey(sk_txt)
+    return ret;
 }

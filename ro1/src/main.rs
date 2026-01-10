@@ -65,6 +65,7 @@ async fn main() -> Result<()> {
     let _ = rtevents::write_proclist_to_cache().await;
     println!("  [*] dumping windows services...");
     let _ = rtevents::write_services_to_cache().await;
+    let _ = rtevents::write_services_reg_to_cache().await;
 
     // ETW listener startup    
     let etw_handle = thread::spawn(||{
