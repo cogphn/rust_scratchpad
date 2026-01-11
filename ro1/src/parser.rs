@@ -652,7 +652,11 @@ pub fn service_to_er(svc: snapshot::Service, hostname: &str) -> Result<cache::Ge
     };
 
     //ret.host = rtevents::get_hostname();
-    ret.host = hostname.to_string();
+    //ret.host = hostname.to_string();
+    ret.host = match svc.system_name {
+        Some(hn) => hn,
+        None => hostname.to_string()
+    };
 
     ret.context1 = match svc.name { 
         Some(name) => name,
