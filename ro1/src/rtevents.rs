@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use serde::Serialize;
-use wmi::{COMLibrary, WMIConnection, Variant};
+//use wmi::{COMLibrary, WMIConnection, Variant};
+use wmi::{WMIConnection, Variant};
 use std::collections::HashMap;
 use futures::StreamExt;
 use std::sync::Arc;
@@ -68,11 +69,14 @@ pub fn get_hostname() -> String {
         return hostname.to_string();
     }
 
+    /*
     let com_lib = match COMLibrary::new(){
         Ok(v) => v,
         Err(_) => return "Unknown".to_string()
     };
-    let wmi_con = match WMIConnection::new(com_lib){
+    */
+
+    let wmi_con = match WMIConnection::new(){
         Ok(v) => v,
         Err(_) => return "Unknown".to_string()
     };    
@@ -168,8 +172,9 @@ pub async fn write_services_reg_to_cache() -> Result<(), Box<dyn std::error::Err
 
 pub fn process_observer(mut stop_rx: mpsc::Receiver<StopSignal>) -> Result<(), Box<dyn std::error::Error>> {
 
-    let com_lib = COMLibrary::new()?;
-    let wmi_con = WMIConnection::new(com_lib)?;
+    //let com_lib = COMLibrary::new()?;
+    //let wmi_con = WMIConnection::new(com_lib)?;
+    let wmi_con = WMIConnection::new()?;
     let new_proc_query = "SELECT * FROM Win32_ProcessStartTrace";
     let mut process_start_stream = wmi_con.async_raw_notification(new_proc_query)?;
 
@@ -226,15 +231,23 @@ pub fn get_process_by_id(process_id: u32) -> Process {
         session_id : Some(0)
     };
 
+    /*
     let com_con = match COMLibrary::new() {
         Ok(v) => v,
         _ => {
             return defaultproc
         }
     };
+    */
 
-    
+    /*
     let wmi_con = match WMIConnection::new(com_con){
+        Ok(v) => v,
+        _ => {
+            return defaultproc
+        }
+    };*/
+    let wmi_con = match WMIConnection::new(){
         Ok(v) => v,
         _ => {
             return defaultproc
@@ -263,8 +276,9 @@ pub fn get_process_by_id(process_id: u32) -> Process {
 
 
 pub fn get_process_details(process_id: u32) -> Result<HashMap<String, Variant>, Box<dyn std::error::Error>> {
-    let com_con = COMLibrary::new()?;
-    let wmi_con = WMIConnection::new(com_con)?;
+    //let com_con = COMLibrary::new()?;
+    //let wmi_con = WMIConnection::new(com_con)?;
+    let wmi_con = WMIConnection::new()?;
 
     let query = format!(r#"SELECT CreationDate, Name, ProcessId, CommandLine, ParentProcessId, ExecutablePath, 
                         Description, ExecutionState, Handle, InstallDate, OSName, WindowsVersion, SessionId

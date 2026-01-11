@@ -1,4 +1,5 @@
-use wmi::{COMLibrary, WMIConnection};
+//use wmi::{COMLibrary, WMIConnection};
+use wmi::{WMIConnection};
 use netstat_esr::{get_sockets_info, AddressFamilyFlags, ProtocolFlags, ProtocolSocketInfo};
 use serde::{Serialize, Deserialize};
 use chrono::NaiveDateTime;
@@ -70,8 +71,9 @@ pub struct Service {
 
 
 pub fn get_process_list() -> Result<Vec<rtevents::ProcessInfo>, Box<dyn std::error::Error>> {
-    let com_lib = COMLibrary::new()?;
-    let wmi_conn = WMIConnection::new(com_lib)?;
+    //let com_lib = COMLibrary::new()?;
+    //let wmi_conn = WMIConnection::new(com_lib)?;
+    let wmi_conn = WMIConnection::new()?;
     
     let processes: Vec<rtevents::Process> = wmi_conn.query()?;
 
@@ -156,8 +158,9 @@ pub fn get_netconn_list() -> Result<Vec<Netconn>, Box<dyn std::error::Error>> {
 }
 
 pub fn get_service_list() -> Result<Vec<Service>, Box<dyn std::error::Error>> {
-    let com_lib = COMLibrary::new()?;
-    let wmi_conn = WMIConnection::new(com_lib)?;    
+    //let com_lib = COMLibrary::new()?;
+    //let wmi_conn = WMIConnection::new(com_lib)?;    
+    let wmi_conn = WMIConnection::new()?;    
     let services: Vec<Service> = wmi_conn.query()?;
     // TODO: enrich or dump reg list separately? :think-emoji:
     return Ok(services);

@@ -15,6 +15,7 @@ time = "0.3.43"
 tokio = { version = "1.48.0", features = ["rt", "macros", "rt-multi-thread"] }
 windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_System_EventLog", "Win32_System_Threading"] }
 wmi = "0.18.0"
+#wmi = "0.17.2"
 
 [[bin]]
 name = "testlist"
@@ -32,3 +33,7 @@ path = "src/subdiag.rs"
 [[bin]]
 name = "etwwatch"
 path = "src/etwwatch.rs"
+
+[[bin]]
+name = "wmicheck"
+path = "src/wmicheck.rs"
