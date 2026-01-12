@@ -163,26 +163,67 @@ fn winkernproc_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
 
 fn parse_kernproc_event(schema: &Schema, record: &EventRecord) {
     let parser = Parser::create(record, schema);
+    let provider_name = "Microsoft-Windows-Kernel-Process";
     let event_desc = match record.event_id() {
-        5 => "ImageLoad",
+        5  => "ImageLoad",
+        15 => "ProcessRundown",
         _ => "Other"
     };
 
     let dtnow = chrono::Utc::now();
     let timestamp = dtnow.to_rfc3339_opts(chrono::format::SecondsFormat::Secs, true);
 
-    let kernproc_event = templates::WinKernProcImageLoad {
-        ts_str: timestamp,
-        event_id: record.event_id(),
-        event_description: event_desc.to_string(),
+    match record.event_id() {
+        5 => {
+            let kernproc_event = templates::WinKernProcImageLoad {
+                ts_str: timestamp,
+                event_id: record.event_id(),
+                event_desc: event_desc.to_string(),
+                provider_name: provider_name.to_string(),
 
-        process_id: parser.try_parse("ProcessID").ok(),
-        image_check_sum: parser.try_parse("ImageCheckSum").ok(),
-        time_date_stamp: parser.try_parse("TimeDateStamp").ok(),
-        image_name: parser.try_parse("ImageName").ok()
+                process_id: parser.try_parse("ProcessID").ok(),
+                image_check_sum: parser.try_parse("ImageCheckSum").ok(),
+                time_date_stamp: parser.try_parse("TimeDateStamp").ok(),
+                image_name: parser.try_parse("ImageName").ok()
+            };
+            match kernproc_event.image_check_sum {
+                Some(v) => {
+                    if v == 0 {
+                        let evt = serde_json::to_string(&kernproc_event).unwrap();
+                        println!("{}", evt);
+                    }
+                },
+                _ => {}
+            };
+        },
+        15 => {
+            let kernproc_event = templates::ProcessRundownArgs {
+                ts_str: timestamp,
+                event_id: record.event_id(),
+                event_desc: event_desc.to_string(),
+                provider_name: provider_name.to_string(),
+
+                process_id: parser.try_parse("ProcessID").ok(),
+                create_time: parser.try_parse("CreateTime").ok(),
+                parent_process_id: parser.try_parse("ParentProcessID").ok(),
+                session_id: parser.try_parse("SessionID").ok(), 
+                flags: parser.try_parse("Flags").ok(),
+                image_name: parser.try_parse("ImageName").ok(),
+                image_checksum: parser.try_parse("ImageChecksum").ok(),
+                time_date_stamp: parser.try_parse("TimeDateStamp").ok(),
+                package_full_name: parser.try_parse("PackageFullName").ok(),
+                package_relative_app_id: parser.try_parse("PackageRelativeAppID").ok()
+            };
+            let evt = serde_json::to_string(&kernproc_event).unwrap();
+            println!("{}", evt);
+        },
+        _ => {}
     };
-    let evt = serde_json::to_string(&kernproc_event).unwrap();
-    println!("{}", evt);
+    
+
+    
+    
+    
 
 }
 
@@ -649,7 +690,7 @@ pub fn start_etw_providers() -> Result<UserTrace, TraceError> {
     
     let dotnetruntime_filter = EventFilter::ByEventIds(vec![156, 85]);
     let dotnetruntimerundown_filter = EventFilter::ByEventIds(vec![157, 158, 187]);
-    let winkernproc_filter = EventFilter::ByEventIds(vec![5]); // ImageLoad 
+    let winkernproc_filter = EventFilter::ByEventIds(vec![5, 15]); // 5: ImageLoad , 15: ProcessRundown
 
     /*
     let win_dns_provider = Provider::by_guid("1c95126e-7eea-49a9-a3fe-a378b03ddb4d") // Microsoft-Windows-DNS-Client
