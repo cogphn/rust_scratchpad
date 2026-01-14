@@ -16,8 +16,11 @@ static N_EVENTS: AtomicU32 = AtomicU32::new(0);
 use std::sync::Arc;
 
 use ferrisetw::trace::TraceError;
-//pub mod parser;
 pub mod templates;
+
+use super::cache;
+//use super::cache::parser;
+
 use std::{sync::atomic::{ AtomicBool }};
 
 
@@ -275,8 +278,14 @@ fn parse_dotnet_rundown_event(schema: &Schema, record: &EventRecord) {
                 com_object_guid: parser.try_parse("ComObjectGuid").ok(),
                 runtime_dll_path: parser.try_parse("RuntimeDllPath").ok()
             };
-            let dotnetstr = serde_json::to_string(&dotnetruntimerundownevent_runtimestart).unwrap();
-            println!("{}", dotnetstr);
+            //let dotnetstr = serde_json::to_string(&dotnetruntimerundownevent_runtimestart).unwrap();
+            let er: cache::GenericEventRecord = cache::parser::dnrrdrsa_to_er(dotnetruntimerundownevent_runtimestart).unwrap(); // TODO: FIX
+
+            cache::get_new_runtime().expect(" [!] could not get cache runtime").spawn( async move {
+                cache::insert_event(&er).await.ok();
+            });
+            //println!("{}", dotnetstr);
+            println!("[dbg]: event for db!");
         },
         _ => {
             let dotnetruntimerundownevent = templates::DotnetRuntimeRundownEvent {
@@ -681,7 +690,7 @@ pub fn stop_dns_event_observer(trace: UserTrace) -> Result<(), TraceError> {
 }
 
 
-pub fn start_etw_providers() -> Result<UserTrace, TraceError> { 
+pub fn get_trace() -> Result<UserTrace, TraceError> { 
 
     //let dns_eid_filter = EventFilter::ByEventIds(vec![1001, 3006, 3008, 3009, 3016, 3018, 3019, 3010, 3011, 3020, 3013]);
     //let tcp_eid_filter = EventFilter::ByEventIds(vec![1002]);
@@ -752,7 +761,7 @@ pub fn stop_etw_providers(trace: UserTrace) ->  Result<(), TraceError> {
 pub fn etw_observer(running: Arc<AtomicBool>) {
     //start_etw_providers
 
-    let trace_ret = start_etw_providers();
+    let trace_ret = get_trace();
 
     if let Err(e) = &trace_ret {
         eprintln!("[!] Error starting trace: {:?}", e);
@@ -761,7 +770,7 @@ pub fn etw_observer(running: Arc<AtomicBool>) {
     let trace = trace_ret.unwrap();
 
     while running.load(Ordering::SeqCst) == true {
-        std::thread::sleep(std::time::Duration::new(5, 0));
+        std::thread::sleep(std::time::Duration::new(5, 0)); //wat?
     } 
 
     let _ = match stop_etw_providers(trace) {
