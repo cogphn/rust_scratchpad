@@ -14,3 +14,4 @@ ro1/sampleout.json
 testaya2/.cargo/*
 testaya2/target/*
 testaya2/*
+mpush/*
