@@ -38,6 +38,7 @@ async fn main() {
     }
 
     let _ = etw_handle.join();
+    let _ = dbsync_handle.join();
     let _ = cache::last_write(nir).await;
 
     println!("[.] Done!");
