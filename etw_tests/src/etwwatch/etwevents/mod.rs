@@ -278,14 +278,16 @@ fn parse_dotnet_rundown_event(schema: &Schema, record: &EventRecord) {
                 com_object_guid: parser.try_parse("ComObjectGuid").ok(),
                 runtime_dll_path: parser.try_parse("RuntimeDllPath").ok()
             };
-            //let dotnetstr = serde_json::to_string(&dotnetruntimerundownevent_runtimestart).unwrap();
+            let dotnetstr = serde_json::to_string(&dotnetruntimerundownevent_runtimestart).unwrap();
+            println!("{}", dotnetstr);
+            
             let er: cache::GenericEventRecord = cache::parser::dnrrdrsa_to_er(dotnetruntimerundownevent_runtimestart).unwrap(); // TODO: FIX
 
             cache::get_new_runtime().expect(" [!] could not get cache runtime").spawn( async move {
                 cache::insert_event(&er).await.ok();
             });
-            //println!("{}", dotnetstr);
-            println!("[dbg]: event for db!");
+            
+            
         },
         _ => {
             let dotnetruntimerundownevent = templates::DotnetRuntimeRundownEvent {
@@ -349,11 +351,17 @@ fn parse_dotnet_event(schema: &Schema, record: &EventRecord) {
         clr_instance_id: parser.try_parse("CrlInstanceID").ok(),
         managed_thread_id: parser.try_parse("ManagedThreadID").ok(),
         flags: parser.try_parse("Flags").ok(),
-        os_thread_id: parser.try_parse("OSThreadId").ok()
+        os_thread_id: parser.try_parse("OSThreadID").ok()
     };
 
     let dotnetstr = serde_json::to_string(&dotnetevent).unwrap();
     println!("{}", dotnetstr);
+
+    let er: cache::GenericEventRecord = cache::parser::dng_to_er(dotnetevent).unwrap();
+    
+    cache::get_new_runtime().expect(" [!] could not get cache runtime").spawn( async move {
+        cache::insert_event(&er).await.ok();
+    });
 }
 
 fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {

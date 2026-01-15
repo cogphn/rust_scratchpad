@@ -14,7 +14,7 @@ pub fn get_default_date() -> NaiveDateTime {
     return NaiveDateTime::new(dd, dt);
 }
 
-pub fn dng_to_er(etwevent: cache::templates::DotnetEvent) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
+pub fn dng_to_er(etwevent: cache::templates::DotnetEvent) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> { //dotnet generic struct to generic event record
 
     let mut ret = cache::GenericEventRecord {
         id: None,
@@ -22,13 +22,31 @@ pub fn dng_to_er(etwevent: cache::templates::DotnetEvent) -> Result<cache::Gener
         ts_type: "etw_ts".to_string(),
         src: "dotnet_generic".to_string(),
         host: "*NA".to_string(),
-        context1: "".to_string(),
-        context1_attrib: "clr_instance_id".to_string(),
-        context2: "".to_string(),
-        context2_attrib: "runtime_dll_path".to_string(),
+        context1: "NA".to_string(),
+        context1_attrib: "event_id".to_string(),
+        context2: "NA".to_string(),
+        context2_attrib: "os_thread_id".to_string(),
         context3: "*NA".to_string(),
-        context3_attrib: "command_line".to_string(),
+        context3_attrib: "app_domain_id".to_string(),
         rawevent: serde_json::to_string(&etwevent).unwrap()
+    };
+
+
+    ret.context1 = etwevent.event_id.to_string(); 
+
+    ret.context2 = match etwevent.os_thread_id {
+        Some(v) => v.to_string(),
+        None => "NA".to_string()
+    };
+
+    ret.context3 = match etwevent.app_domain_id {
+        Some(v) => v.to_string(),
+        None => "NA".to_string()
+    };
+
+    ret.ts = match NaiveDateTime::parse_from_str(&etwevent.ts_str, "%Y-%m-%dT%H:%M:%SZ"){
+        Ok(v) => v,
+        Err(_) => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?
     };
 
     Ok(ret)
@@ -43,7 +61,7 @@ pub fn dnrrdrsa_to_er(etwevent: cache::templates::DotnetRuntimeRundownRuntimeSta
         src: "DotnetRuntimeRundownRuntimeStart".to_string(),
         host: "*NA".to_string(),
         context1: "".to_string(),
-        context1_attrib: "clr_instance_id".to_string(),
+        context1_attrib: "event_id".to_string(),
         context2: "".to_string(),
         context2_attrib: "runtime_dll_path".to_string(),
         context3: "*NA".to_string(),
@@ -51,10 +69,7 @@ pub fn dnrrdrsa_to_er(etwevent: cache::templates::DotnetRuntimeRundownRuntimeSta
         rawevent: serde_json::to_string(&etwevent).unwrap()
     };
 
-    ret.context1 = match etwevent.clr_instance_id {
-        Some(v) => v.to_string(),
-        None => "NA".to_string()
-    };
+    ret.context1 = etwevent.event_id.to_string(); 
 
     ret.context2 = match etwevent.runtime_dll_path {
         Some(v) => v.to_string(),
