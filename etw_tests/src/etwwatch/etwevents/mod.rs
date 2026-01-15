@@ -1,28 +1,94 @@
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
-
 use ferrisetw::parser::Parser;
 use ferrisetw::provider::Provider;
 use ferrisetw::provider::TraceFlags;
 use ferrisetw::schema::Schema;
-//use ferrisetw::schema_locator;
 use ferrisetw::schema_locator::SchemaLocator;
 use ferrisetw::trace::UserTrace;
 use ferrisetw::EventRecord;
 use ferrisetw::provider::EventFilter;
-
 static N_EVENTS: AtomicU32 = AtomicU32::new(0);
-
 use std::sync::Arc;
-
+use wmi::{WMIConnection};
 use ferrisetw::trace::TraceError;
-pub mod templates;
+use windows::Win32::System::Threading::{ GetProcessIdOfThread, OpenThread, THREAD_QUERY_LIMITED_INFORMATION };
 
+pub mod templates;
 use super::cache;
-//use super::cache::parser;
 
 use std::{sync::atomic::{ AtomicBool }};
 
+
+fn get_process_by_id(process_id: u32) -> templates::Process {    
+    let defaultproc = templates::Process {
+        process_id: 0,
+        name: "*NA".to_string(),
+        executable_path: Some("*NA".to_string()),
+        command_line: Some("*NA".to_string()),    
+        creation_date: Some("*NA".to_string()),    
+        description : Some("*NA".to_string()),    
+        handle : Some("*NA".to_string()),
+        handle_count: Some(0),
+        parent_process_id : Some(0),
+        os_name : Some("*NA".to_string()),
+        windows_version : Some("*NA".to_string()),
+        session_id : Some(0)
+    };
+
+    let wmi_con = match WMIConnection::new(){
+        Ok(v) => v,
+        _ => {
+            return defaultproc
+        }
+    };
+
+    let query = format!(r#"SELECT CreationDate, Name, ProcessId, CommandLine, ParentProcessId, ExecutablePath, 
+                        Description, ExecutionState, Handle, HandleCount, InstallDate, OSName, WindowsVersion, SessionId
+                         FROM Win32_Process WHERE ProcessId = {}"#
+                         , process_id);
+    let results: Vec<templates::Process> = match wmi_con.raw_query(&query) {
+        Ok(v) => v,
+        _ => {
+            return defaultproc
+        }
+    };
+
+    if let Some(process) = results.into_iter().next() {
+        process
+    } else {
+        defaultproc
+    }
+}
+
+fn get_process_for_tid(tid: u32) -> templates::Process {
+    let defaultproc = templates::Process {
+        process_id: 0,
+        name: "*NA".to_string(),
+        executable_path: Some("*NA".to_string()),
+        command_line: Some("*NA".to_string()),    
+        creation_date: Some("*NA".to_string()),    
+        description : Some("*NA".to_string()),    
+        handle : Some("*NA".to_string()),
+        handle_count: Some(0),
+        parent_process_id : Some(0),
+        os_name : Some("*NA".to_string()),
+        windows_version : Some("*NA".to_string()),
+        session_id : Some(0)
+    };
+
+    unsafe {
+        let thread_handle = match OpenThread(THREAD_QUERY_LIMITED_INFORMATION, false, tid) {
+            Ok(v) => v,
+            _ => {
+                return defaultproc;
+            }
+        };
+        let pid = GetProcessIdOfThread(thread_handle);
+        let process: templates::Process = get_process_by_id(pid);
+        return process;
+    }
+}
 
 fn hex_to_ipv4(hex_str: &str) -> Option<String> {
     if hex_str.len() != 16 {
@@ -223,11 +289,6 @@ fn parse_kernproc_event(schema: &Schema, record: &EventRecord) {
         _ => {}
     };
     
-
-    
-    
-    
-
 }
 
 
@@ -337,7 +398,7 @@ fn parse_dotnet_event(schema: &Schema, record: &EventRecord) {
     let dtnow = chrono::Utc::now();
     let timestamp = dtnow.to_rfc3339_opts(chrono::format::SecondsFormat::Secs, true);
 
-    let dotnetevent = templates::DotnetEvent {
+    let mut dotnetevent = templates::DotnetEvent {
         ts_str: timestamp,
         event_id: record.event_id(),
         event_description: event_desc.to_string(),
@@ -351,7 +412,19 @@ fn parse_dotnet_event(schema: &Schema, record: &EventRecord) {
         clr_instance_id: parser.try_parse("CrlInstanceID").ok(),
         managed_thread_id: parser.try_parse("ManagedThreadID").ok(),
         flags: parser.try_parse("Flags").ok(),
-        os_thread_id: parser.try_parse("OSThreadID").ok()
+        os_thread_id: parser.try_parse("OSThreadID").ok(),
+        associated_process: None
+    };
+
+    match dotnetevent.os_thread_id {
+        Some(v) => {
+            let process = get_process_for_tid(v);
+            if process.process_id != 0 {
+                let process_str = serde_json::to_string(&process).unwrap();
+                dotnetevent.associated_process = Some(process);
+            }
+        },
+        None => { }
     };
 
     let dotnetstr = serde_json::to_string(&dotnetevent).unwrap();

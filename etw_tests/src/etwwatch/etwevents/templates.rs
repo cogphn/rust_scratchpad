@@ -34,13 +34,9 @@ pub struct WinKernProcImageLoad {
     pub event_desc: String,
     pub event_id: u16,
     pub provider_name: String,
-
-    //pub image_base: Option<u32>, 
-    //pub image_size: Option<u32>,
     pub process_id: Option<u32>,
     pub image_check_sum: Option<u32>,
     pub time_date_stamp: Option<u32>,
-    //pub default_base: Option<u32>,
     pub image_name: Option<String>
 
 }
@@ -89,6 +85,7 @@ pub struct DotnetEvent {
     pub managed_thread_id: Option<u64>,
     pub flags: Option<u32>,
     pub os_thread_id: Option<u32>,
+    pub associated_process: Option<Process>
     
 }
 
@@ -414,3 +411,20 @@ pub struct ProcessRundownArgs {
     pub package_relative_app_id: Option<String>
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename = "Win32_Process")] 
+#[serde(rename_all = "PascalCase")]
+pub struct Process {
+    pub process_id: u32,
+    pub name: String,
+    pub executable_path: Option<String>,
+    pub command_line: Option<String>,    
+    pub creation_date: Option<String>,    
+    pub description : Option<String>,    
+    pub handle : Option<String>,
+    pub handle_count : Option<u32>,    
+    pub parent_process_id : Option<u32>,
+    pub os_name : Option<String>,
+    pub windows_version : Option<String>,
+    pub session_id : Option<u32>
+}
