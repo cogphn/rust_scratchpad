@@ -234,7 +234,7 @@ fn parse_kernproc_event(schema: &Schema, record: &EventRecord) {
     let parser = Parser::create(record, schema);
     let provider_name = "Microsoft-Windows-Kernel-Process";
     let event_desc = match record.event_id() {
-        5  => "ImageLoad",
+        5 => "ImageLoad",
         15 => "ProcessRundown",
         _ => "Other"
     };
@@ -244,7 +244,7 @@ fn parse_kernproc_event(schema: &Schema, record: &EventRecord) {
 
     match record.event_id() {
         5 => {
-            let kernproc_event = templates::WinKernProcImageLoad {
+            let mut kernproc_event = templates::WinKernProcImageLoad {
                 ts_str: timestamp,
                 event_id: record.event_id(),
                 event_desc: event_desc.to_string(),
@@ -253,17 +253,29 @@ fn parse_kernproc_event(schema: &Schema, record: &EventRecord) {
                 process_id: parser.try_parse("ProcessID").ok(),
                 image_check_sum: parser.try_parse("ImageCheckSum").ok(),
                 time_date_stamp: parser.try_parse("TimeDateStamp").ok(),
-                image_name: parser.try_parse("ImageName").ok()
+                image_name: parser.try_parse("ImageName").ok(),
+                associated_process: None
             };
-            match kernproc_event.image_check_sum {
+
+            match kernproc_event.process_id {
                 Some(v) => {
-                    if v == 0 {
-                        let evt = serde_json::to_string(&kernproc_event).unwrap();
-                        println!("{}", evt);
-                    }
+                    kernproc_event.associated_process = Some(get_process_by_id(v));
+                    let evt = serde_json::to_string(&kernproc_event).unwrap();
+                    println!("{}", evt);
+                    
+                    let er: cache::GenericEventRecord = cache::parser::proc_imgload_to_er(kernproc_event).unwrap(); // TODO: FIX
+                    
+                    cache::get_new_runtime().expect(" [!] could not get cache runtime").spawn( async move {
+                        cache::insert_event(&er).await.ok();
+                    });          
+                    
+                    
                 },
                 _ => {}
             };
+            
+            
+
         },
         15 => {
             let kernproc_event = templates::ProcessRundownArgs {
@@ -420,7 +432,7 @@ fn parse_dotnet_event(schema: &Schema, record: &EventRecord) {
         Some(v) => {
             let process = get_process_for_tid(v);
             if process.process_id != 0 {
-                let process_str = serde_json::to_string(&process).unwrap();
+                //let process_str = serde_json::to_string(&process).unwrap();
                 dotnetevent.associated_process = Some(process);
             }
         },
