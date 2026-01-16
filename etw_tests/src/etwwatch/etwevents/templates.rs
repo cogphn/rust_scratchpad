@@ -37,8 +37,8 @@ pub struct WinKernProcImageLoad {
     pub process_id: Option<u32>,
     pub image_check_sum: Option<u32>,
     pub time_date_stamp: Option<u32>,
-    pub image_name: Option<String>
-
+    pub image_name: Option<String>,
+    pub associated_process: Option<Process>
 }
 
 #[derive(Serialize, Deserialize, Debug)]
