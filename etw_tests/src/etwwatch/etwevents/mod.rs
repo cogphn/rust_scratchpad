@@ -10,14 +10,34 @@ use ferrisetw::EventRecord;
 use ferrisetw::provider::EventFilter;
 static N_EVENTS: AtomicU32 = AtomicU32::new(0);
 use std::sync::Arc;
-use wmi::{WMIConnection};
+use wmi::{WMIConnection, Variant};
 use ferrisetw::trace::TraceError;
 use windows::Win32::System::Threading::{ GetProcessIdOfThread, OpenThread, THREAD_QUERY_LIMITED_INFORMATION };
+use std::collections::HashMap;
 
 pub mod templates;
 use super::cache;
 
 use std::{sync::atomic::{ AtomicBool }};
+
+
+pub fn get_hostname() -> String {
+    let wmi_con = match WMIConnection::new(){
+        Ok(v) => v,
+        Err(_) => return "Unknown".to_string()
+    };    
+    let wmi_computersystem: Vec<HashMap<String, Variant>> = match wmi_con.raw_query("SELECT DNSHostName FROM Win32_ComputerSystem"){
+        Ok(v) => v,
+        Err(_) => return "Unknown".to_string()
+    };
+
+    if let Some(info) = wmi_computersystem.into_iter().next() {
+        if let Some(Variant::String(hostname)) = info.get("DNSHostName") {
+            return hostname.to_string();
+        }
+    }
+    "Unknown".to_string()
+}
 
 
 fn get_process_by_id(process_id: u32) -> templates::Process {    
@@ -89,7 +109,7 @@ fn get_process_for_tid(tid: u32) -> templates::Process {
         return process;
     }
 }
-
+/*
 fn hex_to_ipv4(hex_str: &str) -> Option<String> {
     if hex_str.len() != 16 {
         Some("Invalid arguments");
@@ -101,7 +121,9 @@ fn hex_to_ipv4(hex_str: &str) -> Option<String> {
     let ip_addr = format!("{}.{}.{}.{}", bytes[4], bytes[5], bytes[6], bytes[7]);
     Some(ip_addr)
 }
+*/
 
+/*
 fn ms_tcpip_etw_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
     N_EVENTS.fetch_add(1, Ordering::SeqCst);
 
@@ -216,7 +238,7 @@ fn parse_etw_file_event (schema: &Schema, record: &EventRecord) {
     
 
 }
-
+*/
 fn winkernproc_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
     N_EVENTS.fetch_add(1, Ordering::SeqCst);
     match schema_locator.event_schema(record){
@@ -262,7 +284,7 @@ fn parse_kernproc_event(schema: &Schema, record: &EventRecord) {
                     kernproc_event.associated_process = Some(get_process_by_id(v));
                     let evt = serde_json::to_string(&kernproc_event).unwrap();
                     println!("{}", evt);
-                    
+
                     let er: cache::GenericEventRecord = cache::parser::proc_imgload_to_er(kernproc_event).unwrap(); // TODO: FIX
                     
                     cache::get_new_runtime().expect(" [!] could not get cache runtime").spawn( async move {
@@ -417,8 +439,6 @@ fn parse_dotnet_event(schema: &Schema, record: &EventRecord) {
         app_domain_id: parser.try_parse("AppDomainID").ok(), //156, 83
         assembly_flags: parser.try_parse("AssemblyFlags").ok(),
         app_domain_name: parser.try_parse("AppDomainName").ok(),
-        
-        //process_id: parser.try_parse("ProcessID").ok()
 
         allocated: parser.try_parse("Allocated").ok(),
         clr_instance_id: parser.try_parse("CrlInstanceID").ok(),
@@ -432,15 +452,14 @@ fn parse_dotnet_event(schema: &Schema, record: &EventRecord) {
         Some(v) => {
             let process = get_process_for_tid(v);
             if process.process_id != 0 {
-                //let process_str = serde_json::to_string(&process).unwrap();
                 dotnetevent.associated_process = Some(process);
             }
         },
         None => { }
     };
 
-    let dotnetstr = serde_json::to_string(&dotnetevent).unwrap();
-    println!("{}", dotnetstr);
+    // let dotnetstr = serde_json::to_string(&dotnetevent).unwrap();
+    // println!("{}", dotnetstr);
 
     let er: cache::GenericEventRecord = cache::parser::dng_to_er(dotnetevent).unwrap();
     
@@ -449,6 +468,7 @@ fn parse_dotnet_event(schema: &Schema, record: &EventRecord) {
     });
 }
 
+/*
 fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
     let parser = Parser::create(record, schema);
     
@@ -580,9 +600,10 @@ fn parse_etw_tcp_event(schema: &Schema, record: &EventRecord) {
 pub fn stop_tcp_event_observer(trace: UserTrace) -> Result<(), TraceError> {
     return trace.stop();
 }
+*/
 
 // DNS
-
+/*
 fn win_dns_etw_callback(record: &EventRecord, schema_locator: &SchemaLocator) {
     N_EVENTS.fetch_add(1, Ordering::SeqCst);
 
@@ -692,12 +713,10 @@ fn parse_dns_event(schema: &Schema, record: &EventRecord) {
     let dnsstr = serde_json::to_string(&dns_event).unwrap();
     println!("{}", dnsstr);
     
-
-
 }
+*/
 
-
-
+/*
 fn parse_etw_reg_event(schema: &Schema, record: &EventRecord) {
     let parser = Parser::create(record, schema);
     
@@ -762,8 +781,9 @@ fn parse_etw_reg_event(schema: &Schema, record: &EventRecord) {
     
 
 }
+*/
 
-
+/*
 pub fn start_dns_event_observer() -> Result<UserTrace, TraceError> {
 
     let win_dns_provider = Provider::by_guid("1c95126e-7eea-49a9-a3fe-a378b03ddb4d") // Microsoft-Windows-DNS-Client
@@ -781,7 +801,7 @@ pub fn start_dns_event_observer() -> Result<UserTrace, TraceError> {
 pub fn stop_dns_event_observer(trace: UserTrace) -> Result<(), TraceError> {
     return trace.stop();
 }
-
+*/
 
 pub fn get_trace() -> Result<UserTrace, TraceError> { 
 
@@ -818,7 +838,7 @@ pub fn get_trace() -> Result<UserTrace, TraceError> {
         .add_callback(ms_kernfile_etw_callback)
         .add_filter(file_eid_filter)
         .build();
-     */
+    */
 
     let dotnetruntime_provider = Provider::by_guid(0xe13c0d23_ccbc_4e12_931b_d9cc2eee27e4)
         .add_filter(dotnetruntime_filter)

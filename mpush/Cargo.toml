@@ -29,3 +29,9 @@ path ="src/obsrawdump.rs"
 [[bin]]
 name = "test"
 path ="src/testparse.rs"
+
+
+
+[[bin]]
+name = "gctest"
+path ="src/gctest.rs"
