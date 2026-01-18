@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS events (
   ts_type TEXT,
   src TEXT, 
   host TEXT,
+  filename TEXT,
   context1 TEXT, 
   context1_attrib TEXT,
   context2 TEXT, 
@@ -25,7 +26,16 @@ CREATE TABLE IF NOT EXISTS events (
   context3_attrib TEXT,
   rawevent TEXT
 );
+
+CREATE TABLE IF NOT EXISTS stats (
+  id INTEGER PRIMARY KEY,
+  entity_type TEXT,
+  mints TIMESTAMP,
+  maxts TIMESTAMP,
+  lastcalc TIMESTAMP
+);
 "#;
+
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GenericEventRecord {
@@ -34,6 +44,7 @@ pub struct GenericEventRecord {
     pub ts_type: String,
     pub src: String,
     pub host: String,
+    pub filename: String,
     pub context1: String,
     pub context1_attrib: String,
     pub context2: String,
@@ -44,16 +55,18 @@ pub struct GenericEventRecord {
 }
 
 pub static CACHE_CONN: OnceLock<libsql::Connection> = OnceLock::new();
-pub static TOKIO_RUNTIME: OnceLock<Runtime> = OnceLock::new();
-pub static CACHE_PATH: OnceLock<String> = OnceLock::new();
+// pub static TOKIO_RUNTIME: OnceLock<Runtime> = OnceLock::new();
+// pub static CACHE_PATH: OnceLock<String> = OnceLock::new();
 
 pub static DISK_DB_CONN: OnceLock<libsql::Connection> = OnceLock::new();
 
+/*
 pub fn get_runtime() -> &'static Runtime {
     TOKIO_RUNTIME.get_or_init(|| {
         Runtime::new().expect("Failed to create Tokio runtime") //TODO: Review
     })
 }
+    */
 
 pub fn get_new_runtime() -> Result<Runtime, std::io::Error> {
     return Runtime::new();
@@ -99,11 +112,11 @@ pub async fn initialize_cache(cache_path: &str) -> Result<i64, libsql::Error> {
 
 pub async fn last_write(num_initial_rows: i64) -> Result<(), Box<dyn std::error::Error>> {
     let select_query = r#"
-    SELECT ts, ts_type,  src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent
+    SELECT ts, ts_type,  src, host, filename, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent
     FROM events LIMIT ?1
     OFFSET ?2
     "#;
-    let insert_query = "INSERT INTO events (ts, ts_type,  src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+    let insert_query = "INSERT INTO events (ts, ts_type,  src, host, filename, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
     let num_persisted_rows_query = "SELECT MAX(id) as maxid FROM events"; 
 
@@ -149,17 +162,18 @@ pub async fn last_write(num_initial_rows: i64) -> Result<(), Box<dyn std::error:
             let ts_type = row.get::<String>(1).unwrap();
             let src = row.get::<String>(2).unwrap();
             let host = row.get::<String>(3).unwrap();
-            let context1 = row.get::<String>(4).unwrap();
-            let context1_attrib = row.get::<String>(5).unwrap();
+            let filename = row.get::<String>(4).unwrap();
+            let context1 = row.get::<String>(5).unwrap();
+            let context1_attrib = row.get::<String>(6).unwrap();
 
-            let context2 = row.get::<String>(6).unwrap();
-            let context2_attrib = row.get::<String>(7).unwrap();
+            let context2 = row.get::<String>(7).unwrap();
+            let context2_attrib = row.get::<String>(8).unwrap();
 
-            let context3 = row.get::<String>(8).unwrap();
-            let context3_attrib = row.get::<String>(9).unwrap();
+            let context3 = row.get::<String>(9).unwrap();
+            let context3_attrib = row.get::<String>(10).unwrap();
 
-            let rawevent = row.get::<String>(10).unwrap();
-            tx.execute(insert_query, (ts, ts_type, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent)).await?;
+            let rawevent = row.get::<String>(11).unwrap();
+            tx.execute(insert_query, (ts, ts_type, src, host, filename, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent)).await?;
             num_rows +=1;
         }
         tx.commit().await?;
@@ -177,11 +191,11 @@ pub async fn last_write(num_initial_rows: i64) -> Result<(), Box<dyn std::error:
 pub fn db_disk_sync(running:Arc<AtomicBool>, num_initial_rows: i64) -> Result<(), Box<dyn std::error::Error>> {
 
     let select_query = r#"
-    SELECT ts, ts_type, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent
+    SELECT ts, ts_type, src, host, filename, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent
     FROM events LIMIT ?1
     OFFSET ?2
     "#;
-    let insert_query = "INSERT INTO events (ts, ts_type, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+    let insert_query = "INSERT INTO events (ts, ts_type, src, host, filename, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
     let num_persisted_rows_query = "SELECT MAX(id) as maxid FROM events";
 
@@ -230,17 +244,18 @@ pub fn db_disk_sync(running:Arc<AtomicBool>, num_initial_rows: i64) -> Result<()
                     let ts_type = row.get::<String>(1).unwrap();
                     let src = row.get::<String>(2).unwrap();
                     let host = row.get::<String>(3).unwrap();
-                    let context1 = row.get::<String>(4).unwrap();
-                    let context1_attrib = row.get::<String>(5).unwrap();
+                    let filename = row.get::<String>(4).unwrap();
+                    let context1 = row.get::<String>(5).unwrap();
+                    let context1_attrib = row.get::<String>(6).unwrap();
 
-                    let context2 = row.get::<String>(6).unwrap();
-                    let context2_attrib = row.get::<String>(7).unwrap();
+                    let context2 = row.get::<String>(7).unwrap();
+                    let context2_attrib = row.get::<String>(8).unwrap();
 
-                    let context3 = row.get::<String>(8).unwrap();
-                    let context3_attrib = row.get::<String>(9).unwrap();
+                    let context3 = row.get::<String>(9).unwrap();
+                    let context3_attrib = row.get::<String>(10).unwrap();
 
-                    let rawevent = row.get::<String>(10).unwrap();
-                    let _ = tx.execute(insert_query, (ts, ts_type, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent)).await;
+                    let rawevent = row.get::<String>(11).unwrap();
+                    let _ = tx.execute(insert_query, (ts, ts_type, src, host, filename, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent)).await;
                 }
                 let _ = tx.commit().await;
             }
@@ -258,8 +273,8 @@ pub async fn insert_event(event: &GenericEventRecord) -> Result<(), libsql::Erro
     let event_ts = event.ts.format("%Y-%m-%d %H:%M:%S").to_string();
 
     let query = r#"
-    INSERT INTO events (ts, ts_type, src, host, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    INSERT INTO events (ts, ts_type, src, host, filename, context1, context1_attrib, context2, context2_attrib, context3, context3_attrib, rawevent)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     "#;
     let _conn = match CACHE_CONN.get() {
         Some(c) => {
@@ -270,6 +285,7 @@ pub async fn insert_event(event: &GenericEventRecord) -> Result<(), libsql::Erro
                     event.ts_type.clone(),
                     event.src.clone(),
                     event.host.clone(),
+                    event.filename.clone(),
                     event.context1.clone(),
                     event.context1_attrib.clone(),
                     event.context2.clone(),
@@ -286,8 +302,6 @@ pub async fn insert_event(event: &GenericEventRecord) -> Result<(), libsql::Erro
         }
     };
         
-    
-
     Ok(())
 }
 
