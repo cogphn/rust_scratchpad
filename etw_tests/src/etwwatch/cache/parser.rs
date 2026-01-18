@@ -137,14 +137,7 @@ pub fn dnrrdrsa_to_er(etwevent: cache::templates::DotnetRuntimeRundownRuntimeSta
         Some(v) => v.to_string(),
         None => "NA".to_string()
     };
-
-    /*
-    ret.filename = match etwevent.runtime_dll_path {
-        Some(v) => v.to_string(),
-        None => "NA".to_string()
-    };
-    */
-        
+            
     ret.ts = match NaiveDateTime::parse_from_str(&etwevent.ts_str, "%Y-%m-%dT%H:%M:%SZ"){
         Ok(v) => v,
         Err(_) => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?
