@@ -26,7 +26,9 @@ CREATE TABLE IF NOT EXISTS events (
   context3_attrib TEXT,
   rawevent TEXT
 );
+"#;
 
+pub const CREATE_STATS_TABLE_STAEMENT: &str = r#"
 CREATE TABLE IF NOT EXISTS stats (
   id INTEGER PRIMARY KEY,
   entity_type TEXT,
@@ -97,6 +99,7 @@ pub async fn initialize_cache(cache_path: &str) -> Result<i64, libsql::Error> {
     let db = libsql::Builder::new_local(":memory:").build().await?;
     let conn = db.connect().unwrap();
     conn.execute(CACHE_SCHEMA, ()).await.unwrap();
+    conn.execute(CREATE_STATS_TABLE_STAEMENT, ()).await.unwrap();
     CACHE_CONN.set(conn).map_err(|_| libsql::Error::ConnectionFailed(" [!] cache already initialized".into()))?;
 
     // TODO: Check if db exists and get number of rows 
@@ -104,6 +107,7 @@ pub async fn initialize_cache(cache_path: &str) -> Result<i64, libsql::Error> {
     let disk_conn = disk_db.connect().unwrap();
 
     disk_conn.execute(CACHE_SCHEMA, ()).await.unwrap();
+    disk_conn.execute(CREATE_STATS_TABLE_STAEMENT, ()).await.unwrap();
     DISK_DB_CONN.set(disk_conn).map_err(|_| libsql::Error::ConnectionFailed(" [!] cache already initialized".into()))?;
     let num_disk_rows = get_diskdb_num_rows().await?;
 
