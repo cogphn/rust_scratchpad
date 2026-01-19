@@ -166,9 +166,16 @@ fn parse_kernproc_event(schema: &Schema, record: &EventRecord) {
 
             match kernproc_event.process_id {
                 Some(v) => {
-                    kernproc_event.associated_process = Some(get_process_by_id(v));
+                    let associated_process = get_process_by_id(v);
+                    if associated_process.process_id != 0 {
+                        kernproc_event.associated_process = Some(associated_process);
+                    }
+                    
                     let evt = serde_json::to_string(&kernproc_event).unwrap();
-                    println!("{}", evt);
+                    if kernproc_event.image_check_sum == Some(0) {
+                        println!("{}", evt);
+                    }
+                    
 
                     let er: cache::GenericEventRecord = cache::parser::proc_imgload_to_er(kernproc_event).unwrap(); // TODO: FIX
                     
