@@ -23,7 +23,7 @@ pub fn proc_imgload_to_er(kernproc_event: cache::templates::WinKernProcImageLoad
         context2: "NA".to_string(),
         context2_attrib: "image_name".to_string(),
         context3: "*NA".to_string(),
-        context3_attrib: "process_id".to_string(),
+        context3_attrib: "image_check_sum".to_string(),
         rawevent: serde_json::to_string(&kernproc_event).unwrap()
     };
 
@@ -46,7 +46,7 @@ pub fn proc_imgload_to_er(kernproc_event: cache::templates::WinKernProcImageLoad
     };
     */
 
-    ret.context3 = match kernproc_event.process_id {
+    ret.context3 = match kernproc_event.image_check_sum {
         Some(v) => v.to_string(),
         None => "NA".to_string()
     };
