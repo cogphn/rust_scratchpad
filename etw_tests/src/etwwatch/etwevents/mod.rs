@@ -290,7 +290,7 @@ fn parse_dotnet_rundown_event(schema: &Schema, record: &EventRecord) {
             };
 
             let dotnetstr = serde_json::to_string(&dotnetruntimerundownevent).unwrap();
-            println!("{}", dotnetstr);
+            println!("[!] not written to db: {}", dotnetstr);
         }
     } // match
 
@@ -318,12 +318,68 @@ fn parse_dotnet_event(schema: &Schema, record: &EventRecord) {
         83 => "AppDomainResourceManagementMemAllocated",
         85 => "AppDomainResourceManagementThreadCreated",
         87 => "AppDomainResourceManagementDomainEnter",
+        151 => "LoaderDomainModuleLoad", // LoaderDomainModuleLoadArgs
+        154 => "LoaderAssemblyLoad", // LoaderAssemblyLoadArgs
         _ => "Other"
     };
 
     let dtnow = chrono::Utc::now();
     let timestamp = dtnow.to_rfc3339_opts(chrono::format::SecondsFormat::Secs, true);
-    //let mut associated_processes = vec![];
+    
+
+    match record.event_id() {
+        151 => {
+            let evt = templates::LoaderDomainModuleLoadArgs {
+                ts_str: timestamp,
+                event_id: record.event_id(),
+                event_description: event_desc.to_string(),
+                
+                module_id: parser.try_parse("ModuleID").ok(),
+                assembly_id: parser.try_parse("AssemblyID").ok(),
+                app_domain_id: parser.try_parse("AppDomainID").ok(),
+                module_flags: parser.try_parse("ModuleFlags").ok(), 
+                reserved1: parser.try_parse("Reserved1").ok(),
+                module_il_path: parser.try_parse("ModuleILPath").ok(),
+                module_native_path: parser.try_parse("ModuleNativePath").ok(),
+                clr_instance_id: parser.try_parse("ClrInstanceID").ok()
+            };
+            let json_record =  serde_json::to_string(&evt).unwrap();
+            println!("{}", json_record);
+
+            let er: cache::GenericEventRecord = cache::parser::ldmla_to_er(evt).unwrap();
+            cache::get_new_runtime().expect(" [!] could not get cache runtime").spawn( async move {
+                cache::insert_event(&er).await.ok();
+            });
+            
+            return;
+        },
+        154 => {
+            let evt = templates::LoaderAssemblyLoadArgs {
+                ts_str: timestamp,
+                event_id: record.event_id(),
+                event_description: event_desc.to_string(),
+
+                assembly_id: parser.try_parse("AssemblyID").ok(),
+                app_domain_id: parser.try_parse("AppDomainID").ok(),
+                assembly_flags: parser.try_parse("AssemblyFlags").ok(),
+                fully_qualified_assembly_name: parser.try_parse("FullyQualifiedAssemblyName").ok()
+            };
+
+            let json_record =  serde_json::to_string(&evt).unwrap();
+            println!("{}", json_record);
+            
+            let er: cache::GenericEventRecord = cache::parser::lala_to_er(evt).unwrap();
+            cache::get_new_runtime().expect(" [!] could not get cache runtime").spawn( async move {
+                cache::insert_event(&er).await.ok();
+            });
+            
+            return;
+        },
+        _ => {}
+    };
+
+            
+
     let mut dotnetevent = templates::DotnetEvent {
         ts_str: timestamp,
         event_id: record.event_id(),
@@ -364,7 +420,7 @@ pub fn get_trace() -> Result<UserTrace, TraceError> {
     //let file_eid_filter = EventFilter::ByEventIds(vec![30, 28, 26]);
     
     let dotnetruntime_filter = EventFilter::ByEventIds(vec![156, 85, 87]);
-    let dotnetruntimerundown_filter = EventFilter::ByEventIds(vec![157, 158, 187]);
+    let dotnetruntimerundown_filter = EventFilter::ByEventIds(vec![157, 158, 187, 151]);
     let winkernproc_filter = EventFilter::ByEventIds(vec![5, 15]); // 5: ImageLoad , 15: ProcessRundown
 
     /*
