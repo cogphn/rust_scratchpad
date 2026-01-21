@@ -236,6 +236,7 @@ fn parse_dotnet_rundown_event(schema: &Schema, record: &EventRecord) {
         151 => "LoaderDomainModuleDCStart",
         157 => "LoaderAppDomainDCStart",
         158 => "LoaderAppDomainDCStop",
+        159 => "LoaderThreadDCStop", //has os thread id 
         187 => "RuntimeStart",        
         _ => "Other"
     };
@@ -470,7 +471,7 @@ pub fn get_trace() -> Result<UserTrace, TraceError> {
     //let file_eid_filter = EventFilter::ByEventIds(vec![30, 28, 26]);
     
     let dotnetruntime_filter = EventFilter::ByEventIds(vec![156, 85, 87, 151]);
-    let dotnetruntimerundown_filter = EventFilter::ByEventIds(vec![157, 158, 187, 151]);
+    let dotnetruntimerundown_filter = EventFilter::ByEventIds(vec![157, 158, 159, 187, 151]);
     let winkernproc_filter = EventFilter::ByEventIds(vec![5, 15]); // 5: ImageLoad , 15: ProcessRundown
 
     /*
