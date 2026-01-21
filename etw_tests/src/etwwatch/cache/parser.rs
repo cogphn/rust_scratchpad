@@ -74,15 +74,21 @@ pub fn ldmdcsa_to_er(evt: cache::templates::LoaderDomainModuleDCStartArgs) -> Re
 
     ret.src = evt.event_description;
 
-    ret.context2 = match evt.module_il_path {
-        Some(v) => v.to_string(),
-        None => "*NA".to_string()
+    match evt.module_il_path {
+        Some(v) => {
+            ret.context2 = v.clone();
+            ret.filename = v;
+        },
+        None => {}
     };
+    
 
     ret.context3 = match evt.app_domain_id {
         Some(v) => v.to_string(),
         None => "*NA".to_string()
     };
+
+    
 
     Ok(ret)
 
@@ -113,9 +119,12 @@ pub fn ldmla_to_er(evt: cache::templates::LoaderDomainModuleLoadArgs) -> Result<
 
     ret.src = evt.event_description;
 
-    ret.context2 = match evt.module_il_path {
-        Some(v) => v.to_string(),
-        None => "*NA".to_string()
+    match evt.module_il_path {
+        Some(v) => {
+            ret.context2 = v.clone();
+            ret.filename = v;
+        },
+        None => {}
     };
 
     ret.context3 = match evt.app_domain_id {
