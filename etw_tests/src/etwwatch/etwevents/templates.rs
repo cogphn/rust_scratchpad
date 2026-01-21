@@ -1,5 +1,19 @@
 use serde::{Deserialize, Serialize};
 
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct LoaderAppDomainDCStartArgs {
+    pub ts_str: String,
+    pub event_description: String,
+    pub event_id: u16,
+
+    pub app_domain_id: Option<u64>,
+    pub app_domain_flags: Option<u32>,
+    pub app_domain_name: Option<String>,
+    pub app_domain_index: Option<u32>,
+    pub clr_instance_id: Option<u16>
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LoaderDomainModuleDCStartArgs {
     pub ts_str: String,

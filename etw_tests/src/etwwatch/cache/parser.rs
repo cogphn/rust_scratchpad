@@ -8,6 +8,48 @@ pub fn get_default_date() -> NaiveDateTime {
     return NaiveDateTime::new(dd, dt);
 }
     */
+
+pub fn laddcsa_to_er(evt: cache::templates::LoaderAppDomainDCStartArgs) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
+    
+    let event_desc = &evt.event_description;
+    let event_id = &evt.event_id;
+    let mut ret = cache::GenericEventRecord {
+        id: None,
+        ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
+        ts_type: "timestamp".to_string(),
+        src: event_desc.to_string(),
+        host: "*NA".to_string(),
+        filename: "*NA".to_string(),
+        context1: event_id.to_string(),
+        context1_attrib: "event_id".to_string(),
+        context2: "*NA".to_string(),
+        context2_attrib: "app_domain_name".to_string(),
+        context3: "*NA".to_string(),
+        context3_attrib: "app_domain_id".to_string(),
+        rawevent: serde_json::to_string(&evt).unwrap()
+    };
+
+    ret.ts = match NaiveDateTime::parse_from_str(&evt.ts_str, "%Y-%m-%dT%H:%M:%SZ"){
+        Ok(v) => v,
+        Err(_) => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?
+    };
+
+    //ret.src = evt.event_description;
+
+    ret.context2 = match evt.app_domain_name {
+        Some(v) => v.to_string(),
+        None => "*NA".to_string()
+    };
+
+    ret.context3 = match evt.app_domain_id {
+        Some(v) => v.to_string(),
+        None => "*NA".to_string()
+    };
+
+    Ok(ret)
+
+}
+
 pub fn ldmdcsa_to_er(evt: cache::templates::LoaderDomainModuleDCStartArgs) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
     let mut ret = cache::GenericEventRecord {
         id: None,
@@ -19,7 +61,7 @@ pub fn ldmdcsa_to_er(evt: cache::templates::LoaderDomainModuleDCStartArgs) -> Re
         context1: "151".to_string(),
         context1_attrib: "event_id".to_string(),
         context2: "*NA".to_string(),
-        context2_attrib: "module_native_path".to_string(),
+        context2_attrib: "module_il_path".to_string(),
         context3: "*NA".to_string(),
         context3_attrib: "app_domain_id".to_string(),
         rawevent: serde_json::to_string(&evt).unwrap()
@@ -32,7 +74,7 @@ pub fn ldmdcsa_to_er(evt: cache::templates::LoaderDomainModuleDCStartArgs) -> Re
 
     ret.src = evt.event_description;
 
-    ret.context2 = match evt.module_native_path {
+    ret.context2 = match evt.module_il_path {
         Some(v) => v.to_string(),
         None => "*NA".to_string()
     };
@@ -58,7 +100,7 @@ pub fn ldmla_to_er(evt: cache::templates::LoaderDomainModuleLoadArgs) -> Result<
         context1: "151".to_string(),
         context1_attrib: "event_id".to_string(),
         context2: "*NA".to_string(),
-        context2_attrib: "module_native_path".to_string(),
+        context2_attrib: "module_il_path".to_string(),
         context3: "*NA".to_string(),
         context3_attrib: "app_domain_id".to_string(),
         rawevent: serde_json::to_string(&evt).unwrap()
@@ -71,7 +113,7 @@ pub fn ldmla_to_er(evt: cache::templates::LoaderDomainModuleLoadArgs) -> Result<
 
     ret.src = evt.event_description;
 
-    ret.context2 = match evt.module_native_path {
+    ret.context2 = match evt.module_il_path {
         Some(v) => v.to_string(),
         None => "*NA".to_string()
     };
@@ -173,11 +215,13 @@ pub fn proc_imgload_to_er(kernproc_event: cache::templates::WinKernProcImageLoad
 
 pub fn dng_to_er(etwevent: cache::templates::DotnetEvent) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> { //dotnet generic struct to generic event record
 
+    let event_desc = &etwevent.event_description;
     let mut ret = cache::GenericEventRecord {
         id: None,
         ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
         ts_type: "etw_ts".to_string(),
-        src: "dotnet_generic".to_string(),
+        //src: "dotnet_generic".to_string(),
+        src: event_desc.to_string(),
         host: "*NA".to_string(),
         filename: "NA".to_string(),
         context1: "NA".to_string(),
