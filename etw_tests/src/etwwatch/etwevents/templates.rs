@@ -109,6 +109,7 @@ pub struct DotnetRuntimeRundownEvent {
     pub app_domain_name: Option<String>,    
     pub app_domain_index: Option<u32>,    
     pub clr_instance_id: Option<u16>,
+    pub os_thread_id: Option<u32>
     
     //RuntimeStartArgs
     //pub sku: Option<u16>, 

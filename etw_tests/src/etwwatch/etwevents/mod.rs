@@ -323,8 +323,6 @@ fn parse_dotnet_rundown_event(schema: &Schema, record: &EventRecord) {
                 cache::insert_event(&er).await.ok();
             });
 
-
-
         }
         _ => {
             let dotnetruntimerundownevent = templates::DotnetRuntimeRundownEvent {
@@ -336,7 +334,17 @@ fn parse_dotnet_rundown_event(schema: &Schema, record: &EventRecord) {
                 app_domain_flags: parser.try_parse("AppDomainFlags").ok(),
                 app_domain_name: parser.try_parse("AppDomainName").ok(),
                 app_domain_index: parser.try_parse("AppDomainIndex").ok(),
-                clr_instance_id: parser.try_parse("ClrInstanceID").ok()            
+                clr_instance_id: parser.try_parse("ClrInstanceID").ok(),
+                os_thread_id: parser.try_parse("OSThreadID").ok()
+
+            };
+
+            match dotnetruntimerundownevent.os_thread_id {
+                Some(v) => {
+                    let associated_process = get_process_for_tid(v);
+                    println!("[!] found associated process for untracked dotnet rundown event (thread id enrichment): {:?}, {:?}", associated_process.name, associated_process.command_line);
+                },
+                None => {}
             };
 
             let dotnetstr = serde_json::to_string(&dotnetruntimerundownevent).unwrap();
