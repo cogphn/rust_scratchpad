@@ -8,6 +8,43 @@ pub fn get_default_date() -> NaiveDateTime {
     return NaiveDateTime::new(dd, dt);
 }
     */
+pub fn ldmdcsa_to_er(evt: cache::templates::LoaderDomainModuleDCStartArgs) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
+    let mut ret = cache::GenericEventRecord {
+        id: None,
+        ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
+        ts_type: "timestamp".to_string(),
+        src: "loader_domain_module_load".to_string(),
+        host: "*NA".to_string(),
+        filename: "*NA".to_string(),
+        context1: "151".to_string(),
+        context1_attrib: "event_id".to_string(),
+        context2: "*NA".to_string(),
+        context2_attrib: "module_native_path".to_string(),
+        context3: "*NA".to_string(),
+        context3_attrib: "app_domain_id".to_string(),
+        rawevent: serde_json::to_string(&evt).unwrap()
+    };
+
+    ret.ts = match NaiveDateTime::parse_from_str(&evt.ts_str, "%Y-%m-%dT%H:%M:%SZ"){
+        Ok(v) => v,
+        Err(_) => NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?
+    };
+
+    ret.src = evt.event_description;
+
+    ret.context2 = match evt.module_native_path {
+        Some(v) => v.to_string(),
+        None => "*NA".to_string()
+    };
+
+    ret.context3 = match evt.app_domain_id {
+        Some(v) => v.to_string(),
+        None => "*NA".to_string()
+    };
+
+    Ok(ret)
+
+}
 
 
 pub fn ldmla_to_er(evt: cache::templates::LoaderDomainModuleLoadArgs) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
