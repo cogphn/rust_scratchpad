@@ -2,7 +2,37 @@ use serde::{Deserialize, Serialize};
 
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct LoaderDomainModuleLoadArgs { //151
+pub struct LoaderAppDomainDCStartArgs {
+    pub ts_str: String,
+    pub event_description: String,
+    pub event_id: u16,
+
+    pub app_domain_id: Option<u64>,
+    pub app_domain_flags: Option<u32>,
+    pub app_domain_name: Option<String>,
+    pub app_domain_index: Option<u32>,
+    pub clr_instance_id: Option<u16>
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct LoaderDomainModuleDCStartArgs {
+    pub ts_str: String,
+    pub event_description: String,
+    pub event_id: u16,
+
+    pub module_id: Option<u64>,
+    pub assembly_id: Option<u64>,
+    pub app_domain_id: Option<u64>,
+    pub module_flags: Option<u32>, 
+    pub reserved1: Option<u32>,
+    pub module_il_path: Option<String>,
+    pub module_native_path: Option<String>,
+    pub clr_instance_id: Option<u16> //v1    
+}
+
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct LoaderDomainModuleLoadArgs { //151 - 
     pub ts_str: String,
     pub event_description: String,
     pub event_id: u16,

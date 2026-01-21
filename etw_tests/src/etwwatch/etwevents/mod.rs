@@ -233,6 +233,7 @@ fn dotnetruntimerundown_callback(record: &EventRecord, schema_locator: &SchemaLo
 fn parse_dotnet_rundown_event(schema: &Schema, record: &EventRecord) {
     let parser = Parser::create(record, schema);
     let event_desc = match record.event_id() {
+        151 => "LoaderDomainModuleDCStart",
         157 => "LoaderAppDomainDCStart",
         158 => "LoaderAppDomainDCStop",
         187 => "RuntimeStart",        
@@ -276,6 +277,54 @@ fn parse_dotnet_rundown_event(schema: &Schema, record: &EventRecord) {
             
             
         },
+        151 => {
+            let evt = templates::LoaderDomainModuleDCStartArgs {
+                ts_str: timestamp,
+                event_id: record.event_id(),
+                event_description: event_desc.to_string(),
+
+                module_id: parser.try_parse("ModuleID").ok(),
+                assembly_id: parser.try_parse("AssemblyID").ok(),
+                app_domain_id: parser.try_parse("AppDomainID").ok(),
+                module_flags: parser.try_parse("ModuleFlags").ok(), 
+                reserved1: parser.try_parse("Reserved1").ok(),
+                module_il_path: parser.try_parse("ModuleILPath").ok(),
+                module_native_path: parser.try_parse("ModuleNativePath").ok(),
+                clr_instance_id: parser.try_parse("ClrInstanceID").ok()
+            };
+
+            let evtstr = serde_json::to_string(&evt).unwrap();
+            println!("{}", evtstr);
+
+            let er: cache::GenericEventRecord = cache::parser::ldmdcsa_to_er(evt).unwrap();
+            cache::get_new_runtime().expect(" [!] could not get cache runtime").spawn( async move {
+                cache::insert_event(&er).await.ok();
+            });
+        },
+        157 => {
+            let evt = templates::LoaderAppDomainDCStartArgs {
+                ts_str: timestamp,
+                event_id: record.event_id(),
+                event_description: event_desc.to_string(),
+
+                app_domain_id: parser.try_parse("AppDomainID").ok(),
+                app_domain_flags: parser.try_parse("AppDomainFlags").ok(),
+                app_domain_name: parser.try_parse("AppDomainName").ok(),
+                app_domain_index: parser.try_parse("AppDomainIndex").ok(),
+                clr_instance_id: parser.try_parse("ClrInstanceID").ok(),
+            };
+
+            let evtstr = serde_json::to_string(&evt).unwrap();
+            println!("{}", evtstr);
+
+            let er: cache::GenericEventRecord = cache::parser::laddcsa_to_er(evt).unwrap();
+            cache::get_new_runtime().expect(" [!] could not get cache runtime").spawn( async move {
+                cache::insert_event(&er).await.ok();
+            });
+
+
+
+        }
         _ => {
             let dotnetruntimerundownevent = templates::DotnetRuntimeRundownEvent {
                 ts_str: timestamp,
@@ -375,6 +424,7 @@ fn parse_dotnet_event(schema: &Schema, record: &EventRecord) {
             
             return;
         },
+        // TODO : implement 85 (it has an OS thread id)
         _ => {}
     };
 
@@ -419,7 +469,7 @@ pub fn get_trace() -> Result<UserTrace, TraceError> {
     //let reg_eid_filter = EventFilter::ByEventIds(vec![1,3,5,6]);
     //let file_eid_filter = EventFilter::ByEventIds(vec![30, 28, 26]);
     
-    let dotnetruntime_filter = EventFilter::ByEventIds(vec![156, 85, 87]);
+    let dotnetruntime_filter = EventFilter::ByEventIds(vec![156, 85, 87, 151]);
     let dotnetruntimerundown_filter = EventFilter::ByEventIds(vec![157, 158, 187, 151]);
     let winkernproc_filter = EventFilter::ByEventIds(vec![5, 15]); // 5: ImageLoad , 15: ProcessRundown
 
