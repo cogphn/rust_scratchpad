@@ -323,9 +323,38 @@ fn parse_dotnet_rundown_event(schema: &Schema, record: &EventRecord) {
                 cache::insert_event(&er).await.ok();
             });
 
+        },
+        159 => {
+            let mut evt = templates::LoaderThreadDCStopArgs {
+                ts_str: timestamp,
+                event_id: record.event_id(),
+                event_description: event_desc.to_string(),
+                
+                managed_thread_id: parser.try_parse("ManagedThreadID").ok(),
+                app_domain_id: parser.try_parse("AppDomainID").ok(),
+                flags: parser.try_parse("Flags").ok(),
+                managed_thread_index: parser.try_parse("ManagedThreadIndex").ok(),
+                os_thread_id: parser.try_parse("OSThreadID").ok(),
+                clr_instance_id: parser.try_parse("ClrInstanceID").ok(),
+                associated_process: None
+            };
 
+            match evt.os_thread_id {
+                Some(v) => {
+                    evt.associated_process = Some(get_process_for_tid(v));
+                },
+                None => {}
+            };
 
-        }
+            let evtstr = serde_json::to_string(&evt).unwrap();
+            println!("{}", evtstr);
+
+            let er: cache::GenericEventRecord = cache::parser::ltdcsa_to_er(evt).unwrap();
+            cache::get_new_runtime().expect(" [!] could not get cache runtime").spawn( async move {
+                cache::insert_event(&er).await.ok();
+            });
+    
+        },
         _ => {
             let dotnetruntimerundownevent = templates::DotnetRuntimeRundownEvent {
                 ts_str: timestamp,
@@ -336,7 +365,17 @@ fn parse_dotnet_rundown_event(schema: &Schema, record: &EventRecord) {
                 app_domain_flags: parser.try_parse("AppDomainFlags").ok(),
                 app_domain_name: parser.try_parse("AppDomainName").ok(),
                 app_domain_index: parser.try_parse("AppDomainIndex").ok(),
-                clr_instance_id: parser.try_parse("ClrInstanceID").ok()            
+                clr_instance_id: parser.try_parse("ClrInstanceID").ok(),
+                os_thread_id: parser.try_parse("OSThreadID").ok()
+
+            };
+
+            match dotnetruntimerundownevent.os_thread_id {
+                Some(v) => {
+                    let associated_process = get_process_for_tid(v);
+                    println!("[!]{} found associated process for untracked dotnet rundown event (thread id enrichment): {:?}, {:?}", dotnetruntimerundownevent.event_id, associated_process.name, associated_process.command_line);
+                },
+                None => {}
             };
 
             let dotnetstr = serde_json::to_string(&dotnetruntimerundownevent).unwrap();
