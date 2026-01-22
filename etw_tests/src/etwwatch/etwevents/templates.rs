@@ -1,5 +1,20 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct LoaderThreadDCStopArgs {
+    pub ts_str: String,
+    pub event_description: String,
+    pub event_id: u16,
+
+    pub managed_thread_id: Option<u64>,
+    pub app_domain_id: Option<u64>,
+    pub flags: Option<u32>,
+    pub managed_thread_index: Option<u32>,
+    pub os_thread_id: Option<u32>,
+    pub clr_instance_id: Option<u16>,
+    pub associated_process: Option<Process>
+    
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LoaderAppDomainDCStartArgs {
