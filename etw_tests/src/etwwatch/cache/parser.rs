@@ -218,14 +218,16 @@ pub fn lala_to_er(evt: cache::templates::LoaderAssemblyLoadArgs) -> Result<cache
 
 pub fn proc_imgload_to_er(kernproc_event: cache::templates::WinKernProcImageLoad) -> Result<cache::GenericEventRecord, Box<dyn std::error::Error>> {
 
+    let event_desc = &kernproc_event.event_desc;
+    let event_id = &kernproc_event.event_id;
     let mut ret = cache::GenericEventRecord {
         id: None,
         ts: NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?,
         ts_type: "timestamp".to_string(),
-        src: "proc_image_load".to_string(),
+        src: event_desc.to_string(),
         host: "*NA".to_string(),
         filename: "NA".to_string(),
-        context1: "5".to_string(),
+        context1: event_id.to_string(),
         context1_attrib: "event_id".to_string(),
         context2: "NA".to_string(),
         context2_attrib: "image_name".to_string(),
@@ -246,12 +248,6 @@ pub fn proc_imgload_to_er(kernproc_event: cache::templates::WinKernProcImageLoad
         },
         None => {}
     };
-    /*
-    ret.context2 = match kernproc_event.image_name {
-        Some(v) => v.to_string(),
-        None => "NA".to_string()
-    };
-    */
 
     ret.context3 = match kernproc_event.image_check_sum {
         Some(v) => v.to_string(),
