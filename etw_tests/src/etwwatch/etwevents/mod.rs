@@ -142,6 +142,7 @@ fn parse_kernproc_event(schema: &Schema, record: &EventRecord) {
     let provider_name = "Microsoft-Windows-Kernel-Process";
     let event_desc = match record.event_id() {
         5 => "ImageLoad",
+        6 => "ImageUnload",
         15 => "ProcessRundown",
         _ => "Other"
     };
@@ -151,6 +152,47 @@ fn parse_kernproc_event(schema: &Schema, record: &EventRecord) {
 
     match record.event_id() {
         5 => {
+            let mut kernproc_event = templates::WinKernProcImageLoad {
+                ts_str: timestamp,
+                event_id: record.event_id(),
+                event_desc: event_desc.to_string(),
+                provider_name: provider_name.to_string(),
+
+                process_id: parser.try_parse("ProcessID").ok(),
+                image_check_sum: parser.try_parse("ImageCheckSum").ok(),
+                time_date_stamp: parser.try_parse("TimeDateStamp").ok(),
+                image_name: parser.try_parse("ImageName").ok(),
+                associated_process: None
+            };
+
+            match kernproc_event.process_id {
+                Some(v) => {
+                    let associated_process = get_process_by_id(v);
+                    if associated_process.process_id != 0 {
+                        kernproc_event.associated_process = Some(associated_process);
+                    }
+                    
+                    let evt = serde_json::to_string(&kernproc_event).unwrap();
+                    if kernproc_event.image_check_sum == Some(0) {
+                        println!("{}", evt);
+                    }
+                    
+
+                    let er: cache::GenericEventRecord = cache::parser::proc_imgload_to_er(kernproc_event).unwrap(); // TODO: FIX
+                    
+                    cache::get_new_runtime().expect(" [!] could not get cache runtime").spawn( async move {
+                        cache::insert_event(&er).await.ok();
+                    });          
+                    
+                    
+                },
+                _ => {}
+            };
+            
+            
+
+        },
+        6 => {
             let mut kernproc_event = templates::WinKernProcImageLoad {
                 ts_str: timestamp,
                 event_id: record.event_id(),
@@ -511,7 +553,7 @@ pub fn get_trace() -> Result<UserTrace, TraceError> {
     
     let dotnetruntime_filter = EventFilter::ByEventIds(vec![156, 85, 87, 151]);
     let dotnetruntimerundown_filter = EventFilter::ByEventIds(vec![157, 158, 159, 187, 151]);
-    let winkernproc_filter = EventFilter::ByEventIds(vec![5, 15]); // 5: ImageLoad , 15: ProcessRundown
+    let winkernproc_filter = EventFilter::ByEventIds(vec![5, 6, 15]); // 5: ImageLoad , 15: ProcessRundown
 
     /*
     let win_dns_provider = Provider::by_guid("1c95126e-7eea-49a9-a3fe-a378b03ddb4d") // Microsoft-Windows-DNS-Client
