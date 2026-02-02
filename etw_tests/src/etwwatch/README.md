@@ -11,3 +11,21 @@ it's still looking like the easiest way to see this happening is capturing `Micr
 
 
 
+
+
+
+
+## General Flow 
+
+so I started off looking into what ETW events are available for dotnet events. Using etwxplorer, there were a couple providers I could look into.
+
+![etwexplorer](./doc_img/etw_explorer_search_dotnet.png)
+
+
+To generate events, I'm using: 
+
+https://github.com/cogphn/cs_scripts/tree/main/AppDomainManagerInjection_detect_test/test_evil
+
+
+
+
