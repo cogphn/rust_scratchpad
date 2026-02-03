@@ -21,10 +21,31 @@ so I started off looking into what ETW events are available for dotnet events. U
 
 ![etwexplorer](./doc_img/etw_explorer_search_dotnet.png)
 
+To start, I would pick events that look loke they help detect T1574.014. For example, in provider `Microsoft-Windows-DotNETRuntime`, event id 87: `AppDomainResourceManagementDomainEnter`. 
+
+~~~xml
+<event value="87" symbol="AppDomainResourceManagementDomainEnter" version="0" task="AppDomainResourceManagement" opcode="DomainEnter" level="win:Informational" keywords="AppDomainResourceManagementKeyword ThreadingKeyword" template="AppDomainResourceManagementThreadTerminatedArgs" />
+~~~
+
+The template it uses is `AppDomainResourceManagementThreadTerminatedArgs`.  That template looks like this:
+
+~~~xml
+<template tid="AppDomainResourceManagementThreadTerminatedArgs">
+    <data name="ManagedThreadID" inType="win:UInt64" />
+    <data name="AppDomainID" inType="win:UInt64" />
+    <data name="ClrInstanceID" inType="win:UInt16" />
+</template>
+~~~
+
+This means that if we capture this event, we can expect three fields: `ManagedThreadID`, `AppDomainID`, `ClrInstanceID`. Currently I'm grabbing the following:
+
+`Microsoft-Windows-DotNETRuntime` : 156, 85, 87, 151
+`Microsoft-Windows-DotNETRuntimeRundown`: 157, 158, 159, 187, 151
+`Microsoft-Windows-Kernel-Process`: 5, 6, 15
+ 
 
 To generate events, I'm using: 
-
-https://github.com/cogphn/cs_scripts/tree/main/AppDomainManagerInjection_detect_test/test_evil
+ - https://github.com/cogphn/test-appdomain
 
 
 
