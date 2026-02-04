@@ -32,6 +32,8 @@ pub const CREATE_STATS_TABLE_STAEMENT: &str = r#"
 CREATE TABLE IF NOT EXISTS stats (
   id INTEGER PRIMARY KEY,
   entity_type TEXT,
+  entity TEXT,
+  proc_list TEXT,
   mints TIMESTAMP,
   maxts TIMESTAMP,
   lastcalc TIMESTAMP
@@ -192,6 +194,29 @@ pub async fn last_write(num_initial_rows: i64) -> Result<(), Box<dyn std::error:
 
 }
 
+/*
+pub fn calc_stats() -> Result<(), dyn Box<std::error::Error>> {
+
+
+    Ok(())
+}
+    */
+
+    /*
+
+pub fn db_jobs(running:Arc<AtomicBool>) -> Result<(), Box<dyn std::error::Error>> {
+    
+    // NaiveDateTime::parse_from_str("1970-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S")?;
+    let mut lastrun_q1 = "1970-01-01T00:00:00";
+
+    let job1 = "";
+
+
+    
+    Ok (())
+}
+*/
+
 pub fn db_disk_sync(running:Arc<AtomicBool>, num_initial_rows: i64) -> Result<(), Box<dyn std::error::Error>> {
 
     let select_query = r#"
@@ -264,6 +289,8 @@ pub fn db_disk_sync(running:Arc<AtomicBool>, num_initial_rows: i64) -> Result<()
                 let _ = tx.commit().await;
             }
         });
+
+        // compute stats?
 
     } //while loop
 
