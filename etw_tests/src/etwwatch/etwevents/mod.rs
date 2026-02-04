@@ -493,7 +493,10 @@ fn parse_dotnet_event(schema: &Schema, record: &EventRecord) {
                 assembly_id: parser.try_parse("AssemblyID").ok(),
                 app_domain_id: parser.try_parse("AppDomainID").ok(),
                 assembly_flags: parser.try_parse("AssemblyFlags").ok(),
-                fully_qualified_assembly_name: parser.try_parse("FullyQualifiedAssemblyName").ok()
+                fully_qualified_assembly_name: parser.try_parse("FullyQualifiedAssemblyName").ok(),
+
+                binding_id: parser.try_parse("BindingID").ok(),
+                clr_instance_id: parser.try_parse("ClrInstanceID").ok()
             };
 
             let json_record =  serde_json::to_string(&evt).unwrap();
@@ -551,7 +554,7 @@ pub fn get_trace() -> Result<UserTrace, TraceError> {
     //let reg_eid_filter = EventFilter::ByEventIds(vec![1,3,5,6]);
     //let file_eid_filter = EventFilter::ByEventIds(vec![30, 28, 26]);
     
-    let dotnetruntime_filter = EventFilter::ByEventIds(vec![156, 85, 87, 151]);
+    let dotnetruntime_filter = EventFilter::ByEventIds(vec![154, 156, 85, 87, 151]);
     let dotnetruntimerundown_filter = EventFilter::ByEventIds(vec![157, 158, 159, 187, 151]);
     let winkernproc_filter = EventFilter::ByEventIds(vec![5, 6, 15]); // 5: ImageLoad , 15: ProcessRundown
 

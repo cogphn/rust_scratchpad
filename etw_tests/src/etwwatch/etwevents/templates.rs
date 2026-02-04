@@ -71,7 +71,10 @@ pub struct LoaderAssemblyLoadArgs { //154
     pub assembly_id: Option<u64>,
     pub app_domain_id: Option<u64>,
     pub assembly_flags: Option<u32>,
-    pub fully_qualified_assembly_name: Option<String>
+    pub fully_qualified_assembly_name: Option<String>,
+
+    pub binding_id: Option<u64>,
+    pub clr_instance_id: Option<u16>
             
 }
 
