@@ -626,9 +626,11 @@ pub fn etw_observer(running: Arc<AtomicBool>) {
     }
     let trace = trace_ret.unwrap();
 
+    /*
     while running.load(Ordering::SeqCst) == true {
         std::thread::sleep(std::time::Duration::new(5, 0)); //wat?
-    } 
+    } */
+    while running.load(Ordering::SeqCst) == true {}
 
     let _ = match stop_etw_providers(trace) {
         Ok(_) => {
