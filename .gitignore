@@ -15,3 +15,4 @@ testaya2/.cargo/*
 testaya2/target/*
 testaya2/*
 mpush/*
+etw_tests/notes.sql
