@@ -1,0 +1,10 @@
+[package]
+name = "realive"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ollama-rs = "0.3.4"
+qdrant-client = "1.18.0"
+text-splitter = "0.30.1"
+tokio = "1.52.3"
