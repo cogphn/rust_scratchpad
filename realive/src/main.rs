@@ -12,32 +12,42 @@ use ollama_rs::{
 };
 
 use std::fs;
-
 use text_splitter::TextSplitter;
-
-
 use std::error::Error;
 
 const QDRANT_URL: &str = "http://dev05:6334";
 const BOOK_URL: &str = "C:\\users\\W530\\Downloads\\dmbok.md";
+const MODEL_NAME: &str = "nomic-embed-text";
 
 struct DocumentChunk {
     pub file_name: String,
     pub chunk: String
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+
+async fn get_embedding(text_chunk: &str) -> Result<Vec<f32>, Box<dyn Error>> {
+    let ollama_client = Ollama::default();
+
+    let embedding_request = GenerateEmbeddingsRequest::new(
+        MODEL_NAME.to_string(),
+        text_chunk.into()
+    );
+
+    let response = ollama_client.generate_embeddings(embedding_request).await?;
+
+    let resp_vector = response.embeddings.into_iter().next().ok_or("[!] empty list")?;
+
+    Ok(resp_vector)
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
     println!("[*] starting...");
 
     let qdrant = Qdrant::from_url(QDRANT_URL).build()?;
-
-    let file_content = match fs::read_to_string(&BOOK_URL) {
-        Ok(txt) => txt,
-        Err(e) => {
-            return Err(Box::new(e))
-        }
-    };
-
+    
+    let file_content = fs::read_to_string(&BOOK_URL)?;  
+    
     let mut all_chunks: Vec<DocumentChunk> = Vec::new();
     
     let splitter = TextSplitter::new(512);
@@ -50,6 +60,18 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     println!("    [*] chunks: {}", all_chunks.len());
+
+    println!("    [*] processing chunks...");
+
+    for chunk in all_chunks {
+        // get embedding I spose 
+        let embedding_vector: Vec<f32> = get_embedding(chunk.chunk.as_str()).await?;
+
+        
+        
+    }
+
+
     
     println!("[.] Done!");
 
