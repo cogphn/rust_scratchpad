@@ -15,3 +15,5 @@ testaya2/.cargo/*
 testaya2/target/*
 testaya2/*
 mpush/*
+adet/recordings/
+ro1/__cache.db__

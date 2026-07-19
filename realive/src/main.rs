@@ -34,6 +34,12 @@ struct DocPoint {
     pub vector: Vec<f32>
 }
 
+struct PointMetadata {
+    pub filename: String,
+    pub timestamp: String
+}
+
+
 
 async fn get_embedding(text_chunk: &str) -> Result<Vec<f32>, Box<dyn Error>> {
     let ollama_client = Ollama::default();
@@ -80,6 +86,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let embedding_vector: Vec<f32> = get_embedding(chunk.chunk.as_str()).await?;
 
         let point_id = Uuid::new_v4().to_string();
+
+        let payload = 
 
         let point = DocPoint{
             point_id: point_id,

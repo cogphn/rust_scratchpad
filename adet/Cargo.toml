@@ -1,0 +1,21 @@
+[package]
+name = "adet"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# Cross-platform audio I/O (mic capture)
+cpal = "0.15"
+# Lock-free single-producer/single-consumer ring buffer, safe to use
+# from a real-time audio callback (no allocation, no locking).
+rtrb = "0.3"
+# audio file writing.
+hound = "3.5"
+#vorbis_rs = "0.5"
+# Channel for handing finished recordings to the writer thread.
+crossbeam-channel = "0.5"
+chrono = "0.4"
+anyhow = "1"
+log = "0.4"
+env_logger = "0.11"
+ctrlc = "3.5.2"

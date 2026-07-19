@@ -42,7 +42,8 @@ async fn main() -> Result<()> {
     // TODO: read from config file    
     let elog_scope = vec![
         wels::ElogChannel {channel_name: "Application".to_string(), query: "*".to_string()},
-        wels::ElogChannel {channel_name: "System".to_string(), query: "*".to_string()},
+        //wels::ElogChannel {channel_name: "System".to_string(), query: "*".to_string()},
+        wels::ElogChannel {channel_name: "Microsoft-Windows-Sysmon/Operational".to_string(), query: "*".to_string()},
         wels::ElogChannel {channel_name: "Security".to_string(), query: "*".to_string()}
     ];
     
