@@ -16,3 +16,5 @@ testaya2/target/*
 testaya2/*
 mpush/*
 etw_tests/notes.sql
+.continue/agents/new-config.yaml
+adet/recordings/
