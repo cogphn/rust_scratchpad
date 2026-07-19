@@ -58,6 +58,11 @@ pub struct GenericEventRecord {
     pub rawevent: String
 }
 
+/*
+#[derive(Serialize, Deserialize, Debug)]
+pub struct 
+*/
+
 pub static CACHE_CONN: OnceLock<libsql::Connection> = OnceLock::new();
 // pub static TOKIO_RUNTIME: OnceLock<Runtime> = OnceLock::new();
 // pub static CACHE_PATH: OnceLock<String> = OnceLock::new();
@@ -194,13 +199,88 @@ pub async fn last_write(num_initial_rows: i64) -> Result<(), Box<dyn std::error:
 
 }
 
-/*
-pub fn calc_stats() -> Result<(), dyn Box<std::error::Error>> {
 
+pub fn calc_stats(running:Arc<AtomicBool>) -> Result<(), Box<dyn std::error::Error>> {
+
+    let stats_query = r#"
+    SELECT src, filename, sum(1) as rct
+     FROM events
+     WHERE context1 = 5 and context3 = 0
+     GROUP BY src, filename
+     ORDER BY rct
+    "#;
+
+    let app_domain_lookup = r#"
+    SELECT context3, context3_attrib
+     FROM events 
+     WHERE filename like '?1'
+     AND context1 = 151
+    "#;
+
+    let c = match DISK_DB_CONN.get() {
+        Some(conn) => conn,
+        None => {
+            return Err("[!] could not get connection for in-memory DB".into());
+        }
+    };
+
+    while running.load(Ordering::SeqCst) == true {
+        
+        let mut filenames: Vec<String> = Vec::new();
+        let mut app_domain_ids: Vec<String> = Vec::new();
+
+        std::thread::sleep(std::time::Duration::new(10, 0));
+
+        println!("[*] this query runs every 10 seconds or so");
+
+        let rt = Runtime::new().unwrap();
+
+        rt.block_on(async {
+            let mut results = c.query(stats_query, ()).await.unwrap();
+
+            while let Some(row) = results.next().await.unwrap() {
+                let evtsrc: String = row.get::<String>(0).unwrap();
+                let fname: String = row.get::<String>(1).unwrap();
+                let evtct: i64 = row.get::<i64>(2).unwrap();
+
+                //let fname_basename = fname;
+                filenames.push(fname);
+            }
+
+            for found_fname in &filenames {
+                let base_name = found_fname.split("\\").last().unwrap();
+                let fname_param = format!("%{}%", base_name);
+                //println!("[DBG - cache::calc_stats]  fname_param: {}", fname_param);
+                let query_mod = app_domain_lookup.replace("?1", &fname_param);
+                //println!("!{}", &query_mod);
+                let mut app_domain_lookup_results = c.query(&query_mod, params![]).await.unwrap();
+                //let mut app_domain_lookup_results = c.query(app_domain_lookup, params![fname_param] ).await.unwrap();
+
+                while let Some(row) = app_domain_lookup_results.next().await.unwrap() {
+                    let app_domain_id: String = row.get::<String>(0).unwrap();
+                    app_domain_ids.push(app_domain_id);
+                    //app_domain_ids.push(4);
+                    
+
+                }
+
+            }
+
+            println!("[!] App domain IDS: {:?}", app_domain_ids);
+
+
+
+
+
+        });
+
+
+
+        
+    }
 
     Ok(())
 }
-    */
 
     /*
 

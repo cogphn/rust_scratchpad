@@ -213,10 +213,10 @@ fn parse_kernproc_event(schema: &Schema, record: &EventRecord) {
                         kernproc_event.associated_process = Some(associated_process);
                     }
                     
-                    let evt = serde_json::to_string(&kernproc_event).unwrap();
-                    if kernproc_event.image_check_sum == Some(0) {
-                        println!("{}", evt);
-                    }
+                    //let evt = serde_json::to_string(&kernproc_event).unwrap();
+                    //if kernproc_event.image_check_sum == Some(0) {
+                    //    println!("{}", evt);
+                    //}
                     
 
                     let er: cache::GenericEventRecord = cache::parser::proc_imgload_to_er(kernproc_event).unwrap(); // TODO: FIX
@@ -233,8 +233,9 @@ fn parse_kernproc_event(schema: &Schema, record: &EventRecord) {
             
 
         },
+        /*
         15 => {
-            let kernproc_event = templates::ProcessRundownArgs {
+            let _kernproc_event = templates::ProcessRundownArgs { // TODO: remove
                 ts_str: timestamp,
                 event_id: record.event_id(),
                 event_desc: event_desc.to_string(),
@@ -251,9 +252,10 @@ fn parse_kernproc_event(schema: &Schema, record: &EventRecord) {
                 package_full_name: parser.try_parse("PackageFullName").ok(),
                 package_relative_app_id: parser.try_parse("PackageRelativeAppID").ok()
             };
-            let evt = serde_json::to_string(&kernproc_event).unwrap();
-            println!("{}", evt);
+            //let evt = serde_json::to_string(&kernproc_event).unwrap();
+            //println!("{}", evt);
         },
+        */
         _ => {}
     };
     
@@ -309,8 +311,8 @@ fn parse_dotnet_rundown_event(schema: &Schema, record: &EventRecord) {
                 com_object_guid: parser.try_parse("ComObjectGuid").ok(),
                 runtime_dll_path: parser.try_parse("RuntimeDllPath").ok()
             };
-            let dotnetstr = serde_json::to_string(&dotnetruntimerundownevent_runtimestart).unwrap();
-            println!("{}", dotnetstr);
+            //let dotnetstr = serde_json::to_string(&dotnetruntimerundownevent_runtimestart).unwrap();
+            //println!("{}", dotnetstr);
             
             let er: cache::GenericEventRecord = cache::parser::dnrrdrsa_to_er(dotnetruntimerundownevent_runtimestart).unwrap(); // TODO: FIX
 
@@ -336,8 +338,8 @@ fn parse_dotnet_rundown_event(schema: &Schema, record: &EventRecord) {
                 clr_instance_id: parser.try_parse("ClrInstanceID").ok()
             };
 
-            let evtstr = serde_json::to_string(&evt).unwrap();
-            println!("{}", evtstr);
+            //let evtstr = serde_json::to_string(&evt).unwrap();
+            //println!("{}", evtstr);
 
             let er: cache::GenericEventRecord = cache::parser::ldmdcsa_to_er(evt).unwrap();
             cache::get_new_runtime().expect(" [!] could not get cache runtime").spawn( async move {
@@ -358,7 +360,7 @@ fn parse_dotnet_rundown_event(schema: &Schema, record: &EventRecord) {
             };
 
             let evtstr = serde_json::to_string(&evt).unwrap();
-            println!("{}", evtstr);
+            //println!("{}", evtstr);
 
             let er: cache::GenericEventRecord = cache::parser::laddcsa_to_er(evt).unwrap();
             cache::get_new_runtime().expect(" [!] could not get cache runtime").spawn( async move {
@@ -389,7 +391,7 @@ fn parse_dotnet_rundown_event(schema: &Schema, record: &EventRecord) {
             };
 
             let evtstr = serde_json::to_string(&evt).unwrap();
-            println!("{}", evtstr);
+            //println!("{}", evtstr);
 
             let er: cache::GenericEventRecord = cache::parser::ltdcsa_to_er(evt).unwrap();
             cache::get_new_runtime().expect(" [!] could not get cache runtime").spawn( async move {
@@ -475,7 +477,7 @@ fn parse_dotnet_event(schema: &Schema, record: &EventRecord) {
                 clr_instance_id: parser.try_parse("ClrInstanceID").ok()
             };
             let json_record =  serde_json::to_string(&evt).unwrap();
-            println!("{}", json_record);
+            //println!("{}", json_record);
 
             let er: cache::GenericEventRecord = cache::parser::ldmla_to_er(evt).unwrap();
             cache::get_new_runtime().expect(" [!] could not get cache runtime").spawn( async move {
@@ -500,7 +502,7 @@ fn parse_dotnet_event(schema: &Schema, record: &EventRecord) {
             };
 
             let json_record =  serde_json::to_string(&evt).unwrap();
-            println!("{}", json_record);
+            //println!("{}", json_record);
             
             let er: cache::GenericEventRecord = cache::parser::lala_to_er(evt).unwrap();
             cache::get_new_runtime().expect(" [!] could not get cache runtime").spawn( async move {

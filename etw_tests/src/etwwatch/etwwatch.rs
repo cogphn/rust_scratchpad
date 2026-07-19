@@ -18,6 +18,7 @@ async fn main() {
     let rc = running.clone();
     let rc1 = running.clone();
     let rc2 = running.clone();
+    let rc3 = running.clone();
 
     ctrlc::set_handler(move || {
         running.store(false, Ordering::SeqCst);
@@ -27,6 +28,10 @@ async fn main() {
     let dbsync_handle = thread::spawn( move||{
         let nir = num_initial_rows;
         let _ = cache::db_disk_sync(rc2, nir);
+    });
+
+    let stats_handle = thread::spawn( move || {
+        let _ = cache::calc_stats(rc3);
     });
 
     let etw_handle = thread::spawn(||{
@@ -39,6 +44,7 @@ async fn main() {
 
     let _ = etw_handle.join();
     let _ = dbsync_handle.join();
+    let _ = stats_handle.join();
     let _ = cache::last_write(nir).await;
 
     println!("[.] Done!");
