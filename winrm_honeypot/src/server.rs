@@ -11,8 +11,10 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::middleware::Next;
 use axum::response::Response;
 use axum::routing::post;
-use std::net::SocketAddr;
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::net::{IpAddr, SocketAddr};
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 /// Largest request body we will buffer. WinRM command payloads are small; a
 /// honeypot must not let a stranger decide how much memory it uses.
@@ -21,9 +23,21 @@ pub const MAX_BODY: usize = 256 * 1024;
 /// What the server advertises about itself.
 const SERVER_HEADER: &str = "Microsoft-HTTPAPI/2.0";
 
+/// How long a server challenge stays usable. Tools send the Type 3 almost
+/// immediately; anything older is a stray and must not be honoured.
+const CHALLENGE_TTL: std::time::Duration = std::time::Duration::from_secs(60);
+
+pub struct PendingChallenge {
+    pub bytes: [u8; 8],
+    pub issued: Instant,
+}
+
 pub struct AppState {
     pub cfg: Arc<Config>,
     pub log: Arc<EventLog>,
+    /// Server challenge per source IP. Keyed by IP, not by connection: most
+    /// tooling opens a fresh TCP connection for each NTLM step.
+    pub pending: Mutex<HashMap<IpAddr, PendingChallenge>>,
 }
 
 pub fn router(state: Arc<AppState>) -> Router {
@@ -127,7 +141,9 @@ async fn wsman_handler(
                 bad_request("malformed Basic credentials")
             }
         },
-        // Negotiate/NTLM arrives in the next phase; anything else is refused.
+        Some(value) if scheme_is(value, "negotiate") || scheme_is(value, "ntlm") => {
+            on_negotiate(&st, peer, value, &body)
+        }
         Some(_) => challenge(&st, None),
     }
 }
@@ -207,6 +223,210 @@ fn on_basic(st: &AppState, peer: SocketAddr, b: BasicOutcome, body: &Bytes) -> R
     }
 }
 
+/// NTLM over HTTP: Type 1 -> Type 2 challenge, Type 3 -> verify.
+fn on_negotiate(st: &AppState, peer: SocketAddr, header_value: &str, body: &Bytes) -> Response {
+    use base64::Engine;
+
+    let ip = peer.to_string();
+    let Some((scheme, token_b64)) = header_value
+        .split_once(' ')
+        .map(|(s, t)| (s.trim(), t.trim()))
+    else {
+        return challenge(st, None);
+    };
+    let Ok(decoded) = base64::engine::general_purpose::STANDARD.decode(token_b64) else {
+        st.log.event(
+            "auth",
+            &[
+                ("scheme", "negotiate"),
+                ("ip", ip.as_str()),
+                ("result", "bad_base64"),
+            ],
+        );
+        return challenge(st, None);
+    };
+
+    let Some(msg) = crate::ntlm::find_message(&decoded) else {
+        // Kerberos/other SPNEGO mechanisms have no NTLMSSP body.
+        st.log.event(
+            "auth",
+            &[
+                ("scheme", "negotiate"),
+                ("ip", ip.as_str()),
+                ("result", "non_ntlm_token"),
+            ],
+        );
+        return challenge(st, None);
+    };
+
+    match crate::ntlm::message_type(msg) {
+        Some(1) => {
+            let challenge_bytes = crate::ntlm::random_challenge();
+            let type2 = crate::ntlm::build_type2(
+                &identity_for(&st.cfg),
+                challenge_bytes,
+                crate::ntlm::filetime_now(),
+            );
+            {
+                let mut pending = st.pending.lock().unwrap_or_else(|e| e.into_inner());
+                // Bound the map: hostile clients can otherwise grow it forever.
+                pending.retain(|_, c| c.issued.elapsed() < CHALLENGE_TTL);
+                pending.insert(
+                    peer.ip(),
+                    PendingChallenge {
+                        bytes: challenge_bytes,
+                        issued: Instant::now(),
+                    },
+                );
+            }
+            st.log.event(
+                "auth",
+                &[
+                    ("scheme", "ntlm_type1"),
+                    ("ip", ip.as_str()),
+                    ("result", "challenge_sent"),
+                ],
+            );
+            challenge(st, Some((scheme, type2.as_slice())))
+        }
+        Some(3) => on_authenticate(st, peer, msg, body),
+        _ => {
+            st.log.event(
+                "auth",
+                &[
+                    ("scheme", "negotiate"),
+                    ("ip", ip.as_str()),
+                    ("result", "unsupported_message_type"),
+                ],
+            );
+            challenge(st, None)
+        }
+    }
+}
+
+fn on_authenticate(st: &AppState, peer: SocketAddr, msg: &[u8], body: &Bytes) -> Response {
+    let ip = peer.to_string();
+    let Some(t3) = crate::ntlm::parse_type3(msg) else {
+        st.log.event(
+            "auth",
+            &[
+                ("scheme", "ntlm_type3"),
+                ("ip", ip.as_str()),
+                ("result", "malformed"),
+            ],
+        );
+        return challenge(st, None);
+    };
+
+    let challenge_bytes = {
+        let mut pending = st.pending.lock().unwrap_or_else(|e| e.into_inner());
+        match pending.remove(&peer.ip()) {
+            Some(c) if c.issued.elapsed() < CHALLENGE_TTL => Some(c.bytes),
+            _ => None,
+        }
+    };
+
+    let Some(challenge_bytes) = challenge_bytes else {
+        log_type3(st, &ip, &t3, None, "no_challenge");
+        return challenge(st, None);
+    };
+
+    let Some(cred) = st.cfg.find_credential(&t3.domain, &t3.user) else {
+        log_type3(st, &ip, &t3, Some(&challenge_bytes), "unknown_user");
+        return challenge(st, None);
+    };
+
+    // Hash the way the *client* did: with the user name and domain as sent.
+    // Fall back to the configured domain spelling for clients that lower-case
+    // it while the config has the canonical upper-case form.
+    let ok = match &t3.v2 {
+        Some(v2) => {
+            let mut ok = crate::ntlm::verify_ntlmv2(
+                &cred.password,
+                &t3.user,
+                &t3.domain,
+                &challenge_bytes,
+                v2,
+            );
+            if !ok {
+                let configured = cred.domain_or(&st.cfg.identity.domain);
+                ok = crate::ntlm::verify_ntlmv2(
+                    &cred.password,
+                    &t3.user,
+                    configured,
+                    &challenge_bytes,
+                    v2,
+                );
+            }
+            ok
+        }
+        None => false,
+    };
+
+    log_type3(
+        st,
+        &ip,
+        &t3,
+        Some(&challenge_bytes),
+        if ok { "ok" } else { "denied" },
+    );
+
+    if ok {
+        authenticated_exchange(st, body)
+    } else {
+        challenge(st, None)
+    }
+}
+
+fn log_type3(
+    st: &AppState,
+    ip: &str,
+    t3: &crate::ntlm::Type3,
+    challenge_bytes: Option<&[u8; 8]>,
+    result: &str,
+) {
+    let flags = format!("0x{:08x}", t3.flags);
+    let mut fields: Vec<(&str, String)> = vec![
+        ("scheme", "ntlm_type3".into()),
+        ("ip", ip.into()),
+        ("domain", t3.domain.clone()),
+        ("user", t3.user.clone()),
+        ("workstation", t3.workstation.clone()),
+        ("flags", flags),
+        ("result", result.into()),
+    ];
+
+    match (&t3.v2, challenge_bytes) {
+        (Some(v2), Some(ch)) => {
+            fields.push((
+                "ntlmv2",
+                crate::ntlm::netntlmv2_line(&t3.user, &t3.domain, ch, v2),
+            ));
+        }
+        (Some(v2), None) => {
+            fields.push(("ntproofstr", crate::ntlm::hex(&v2.proof)));
+            fields.push(("blob", crate::ntlm::hex(&v2.blob)));
+        }
+        (None, _) => {
+            fields.push(("response", "non_ntlmv2".into()));
+        }
+    }
+
+    let refs: Vec<(&str, &str)> = fields.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    st.log.event("auth", &refs);
+}
+
+fn identity_for(cfg: &Config) -> crate::ntlm::ServerIdentity<'_> {
+    crate::ntlm::ServerIdentity {
+        netbios_name: &cfg.identity.computer_name,
+        domain: &cfg.identity.domain,
+        dns_host: &cfg.identity.dns_domain,
+        dns_domain: &cfg.identity.dns_domain,
+        version: crate::config::parse_os_version(&cfg.identity.os_version)
+            .unwrap_or((10, 0, 20348)),
+    }
+}
+
 fn bad_request(why: &str) -> Response {
     let mut resp = Response::new(axum::body::Body::from(soap::fault(why)));
     *resp.status_mut() = StatusCode::BAD_REQUEST;
@@ -245,28 +465,51 @@ fn authenticated_exchange(st: &AppState, body: &Bytes) -> Response {
     resp
 }
 
-/// 401 with one `WWW-Authenticate` header per configured scheme, in config
-/// order. `ntlm_type2` carries the NTLM challenge once negotiation is underway.
-pub fn challenge(st: &AppState, ntlm_type2: Option<&[u8]>) -> Response {
+/// 401 that either continues an NTLM handshake or advertises what we accept.
+///
+/// `ntlm` carries the scheme the client actually used plus the Type 2 message.
+/// The reply must repeat *that* scheme: a client that sent `Authorization:
+/// NTLM ...` ignores a `WWW-Authenticate: Negotiate ...` challenge and starts
+/// over (curl does exactly this), while Windows clients expect `Negotiate`.
+pub fn challenge(st: &AppState, ntlm: Option<(&str, &[u8])>) -> Response {
     let mut resp = Response::new(axum::body::Body::empty());
     *resp.status_mut() = StatusCode::UNAUTHORIZED;
 
+    let mut advertised: Vec<String> = Vec::new();
+
+    if let Some((scheme, msg)) = ntlm {
+        use base64::Engine;
+        let b64 = base64::engine::general_purpose::STANDARD.encode(msg);
+        advertised.push(scheme.to_ascii_lowercase());
+        append_challenge(&mut resp, format!("{scheme} {b64}"));
+    }
+
     for scheme in &st.cfg.server.schemes {
         let value = match scheme {
-            crate::config::Scheme::Negotiate => match ntlm_type2 {
-                Some(msg) => format!("Negotiate {}", {
-                    use base64::Engine;
-                    base64::engine::general_purpose::STANDARD.encode(msg)
-                }),
-                None => "Negotiate".to_string(),
-            },
-            crate::config::Scheme::Basic => "Basic realm=\"WSMAN\"".to_string(),
+            crate::config::Scheme::Negotiate => {
+                if advertised.iter().any(|s| s == "negotiate") {
+                    continue;
+                }
+                "Negotiate".to_string()
+            }
+            crate::config::Scheme::Basic => {
+                if advertised.iter().any(|s| s == "basic") {
+                    continue;
+                }
+                "Basic realm=\"WSMAN\"".to_string()
+            }
         };
-        if let Ok(v) = HeaderValue::from_str(&value) {
-            resp.headers_mut().append(header::WWW_AUTHENTICATE, v);
-        }
+        advertised.push(value.to_ascii_lowercase());
+        append_challenge(&mut resp, value);
     }
+
     resp
+}
+
+fn append_challenge(resp: &mut Response, value: String) {
+    if let Ok(v) = HeaderValue::from_str(&value) {
+        resp.headers_mut().append(header::WWW_AUTHENTICATE, v);
+    }
 }
 
 /// Binds, logs the startup line and serves until Ctrl+C. Returns the address
@@ -276,6 +519,7 @@ pub async fn serve(cfg: Config, log: Arc<EventLog>) -> anyhow::Result<SocketAddr
     let state = Arc::new(AppState {
         cfg: Arc::new(cfg),
         log: log.clone(),
+        pending: Mutex::new(HashMap::new()),
     });
 
     let listener = tokio::net::TcpListener::bind(addr).await.map_err(|e| {
