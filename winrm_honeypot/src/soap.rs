@@ -30,6 +30,56 @@ pub fn escape_xml(s: &str) -> String {
         .replace('"', "&quot;")
 }
 
+/// Best-effort extraction of the command a WS-Man `CommandLine` request wants to
+/// run, for logging.
+///
+/// Deliberately string-based: no XML parser means no XXE, no entity expansion
+/// and no billion-laughs, and the literal text is what gets recorded.
+pub fn extract_command(body: &str) -> Option<String> {
+    for tag in ["Command", "Arguments"] {
+        if let Some(value) = extract_element(body, tag) {
+            return Some(value);
+        }
+    }
+    None
+}
+
+/// Finds `<prefix:tag ...>text</prefix:tag>` for any namespace prefix.
+fn extract_element(body: &str, tag: &str) -> Option<String> {
+    let needle = format!(":{tag}");
+    let mut from = 0usize;
+
+    while let Some(rel) = body[from..].find(&needle) {
+        let at = from + rel;
+        let after = body.get(at + needle.len()..)?;
+        // Must be the whole local name: reject `<rsp:CommandLine ...>`.
+        let first = after.chars().next()?;
+        if first != '>' && !first.is_whitespace() {
+            from = at + needle.len();
+            continue;
+        }
+
+        let open_start = body[..at].rfind('<')?;
+        let qname = &body[open_start + 1..at + needle.len()];
+        let gt = body[at + needle.len()..].find('>')? + at + needle.len();
+        let close = format!("</{qname}>");
+        let content_start = gt + 1;
+        let end = body[content_start..].find(&close)? + content_start;
+        return Some(unescape_xml(&body[content_start..end]));
+    }
+    None
+}
+
+/// Reverses [`escape_xml`] for the five predefined entities. `&amp;` last so
+/// `&amp;lt;` decodes to `&lt;` rather than `<`.
+pub fn unescape_xml(s: &str) -> String {
+    s.replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&apos;", "'")
+        .replace("&amp;", "&")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -73,5 +123,49 @@ mod tests {
     fn escape_xml_does_not_double_escape_ampersands() {
         assert_eq!(escape_xml("a & b"), "a &amp; b");
         assert_eq!(escape_xml("<a & b>"), "&lt;a &amp; b&gt;");
+    }
+
+    #[test]
+    fn extracts_a_command_from_the_rsp_namespace() {
+        let body = r#"<rsp:CommandLine><rsp:Command>whoami /all</rsp:Command></rsp:CommandLine>"#;
+        assert_eq!(extract_command(body).as_deref(), Some("whoami /all"));
+    }
+
+    #[test]
+    fn extracts_from_any_namespace_prefix() {
+        let body =
+            r#"<p:CommandLine xmlns:p="urn:x"><p:Command>ipconfig</p:Command></p:CommandLine>"#;
+        assert_eq!(extract_command(body).as_deref(), Some("ipconfig"));
+    }
+
+    #[test]
+    fn handles_attributes_on_the_command_tag() {
+        let body = r#"<rsp:Command xmlns:rsp="urn:x">net user</rsp:Command>"#;
+        assert_eq!(extract_command(body).as_deref(), Some("net user"));
+    }
+
+    #[test]
+    fn extracts_entity_escaped_commands() {
+        let body = r#"<rsp:Command>cmd /c echo &lt;hi&gt;</rsp:Command>"#;
+        assert_eq!(extract_command(body).as_deref(), Some("cmd /c echo <hi>"));
+    }
+
+    #[test]
+    fn does_not_confuse_commandline_with_command() {
+        let body = r#"<rsp:CommandLine><rsp:Command>whoami</rsp:Command></rsp:CommandLine>"#;
+        assert_eq!(extract_command(body).as_deref(), Some("whoami"));
+    }
+
+    #[test]
+    fn returns_none_when_there_is_no_command() {
+        assert_eq!(extract_command("<s:Envelope/>"), None);
+        assert_eq!(extract_command(""), None);
+    }
+
+    /// A billion-laughs payload is recorded literally: nothing is expanded.
+    #[test]
+    fn entities_are_never_expanded() {
+        let body = r#"<rsp:Command>&lol9;</rsp:Command>"#;
+        assert_eq!(extract_command(body).as_deref(), Some("&lol9;"));
     }
 }

@@ -123,6 +123,22 @@ async fn wsman_handler(
         .get(header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok());
 
+    // Record attempted commands before auth decides: an unauthenticated attempt
+    // to run something is the most interesting event a honeypot can see.
+    if let Some(cmd) = soap::extract_command(&String::from_utf8_lossy(&body)) {
+        let ip = peer.to_string();
+        let len = body.len().to_string();
+        st.log.event(
+            "command",
+            &[
+                ("ip", ip.as_str()),
+                ("cmd", cmd.as_str()),
+                ("auth", auth.unwrap_or("none")),
+                ("len", len.as_str()),
+            ],
+        );
+    }
+
     match auth {
         None => challenge(&st, None),
         Some(value) if scheme_is(value, "basic") => match parse_basic(value) {
