@@ -3,10 +3,11 @@
 
 use crate::config::Config;
 use crate::logging::EventLog;
+use crate::soap;
 use axum::Router;
 use axum::body::Bytes;
 use axum::extract::{ConnectInfo, DefaultBodyLimit, Request, State};
-use axum::http::{HeaderValue, StatusCode, header};
+use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::middleware::Next;
 use axum::response::Response;
 use axum::routing::post;
@@ -98,8 +99,150 @@ async fn log_every_request(
 
 // The `Bytes` argument is what enforces `MAX_BODY`; keep it last (it is the
 // only body-consuming extractor).
-async fn wsman_handler(State(st): State<Arc<AppState>>, _body: Bytes) -> Response {
-    challenge(&st, None)
+async fn wsman_handler(
+    State(st): State<Arc<AppState>>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    let auth = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok());
+
+    match auth {
+        None => challenge(&st, None),
+        Some(value) if scheme_is(value, "basic") => match parse_basic(value) {
+            Some(basic) => on_basic(&st, peer, basic, &body),
+            None => {
+                let ip = peer.to_string();
+                st.log.event(
+                    "auth",
+                    &[
+                        ("scheme", "basic"),
+                        ("ip", ip.as_str()),
+                        ("raw", value),
+                        ("result", "malformed"),
+                    ],
+                );
+                bad_request("malformed Basic credentials")
+            }
+        },
+        // Negotiate/NTLM arrives in the next phase; anything else is refused.
+        Some(_) => challenge(&st, None),
+    }
+}
+
+fn scheme_is(header_value: &str, scheme: &str) -> bool {
+    header_value
+        .split_once(' ')
+        .is_some_and(|(s, _)| s.eq_ignore_ascii_case(scheme))
+}
+
+/// Credentials decoded out of `Authorization: Basic base64([DOMAIN]user:pass)`.
+#[derive(Debug)]
+pub struct BasicOutcome {
+    pub domain: String,
+    pub user: String,
+    pub password: String,
+}
+
+/// Accepts `user:pass`, `DOMAIN\user:pass` and `user@domain:pass`. Only the
+/// first colon separates user from password, so passwords may contain colons.
+pub fn parse_basic(header_value: &str) -> Option<BasicOutcome> {
+    use base64::Engine;
+    let (_, b64) = header_value.split_once(' ')?;
+    let raw = base64::engine::general_purpose::STANDARD
+        .decode(b64.trim())
+        .ok()?;
+    let text = String::from_utf8_lossy(&raw);
+    let (ident, password) = text.split_once(':')?;
+
+    let (domain, user) = if let Some((d, u)) = ident.split_once('\\') {
+        (d.to_string(), u.to_string())
+    } else if let Some((u, d)) = ident.split_once('@') {
+        (d.to_string(), u.to_string())
+    } else {
+        (String::new(), ident.to_string())
+    };
+
+    Some(BasicOutcome {
+        domain,
+        user,
+        password: password.to_string(),
+    })
+}
+
+fn on_basic(st: &AppState, peer: SocketAddr, b: BasicOutcome, body: &Bytes) -> Response {
+    let ip = peer.to_string();
+    // A bare `user` authenticates against the identity domain, like a local
+    // account on the machine the honeypot claims to be.
+    let domain = if b.domain.is_empty() {
+        st.cfg.identity.domain.clone()
+    } else {
+        b.domain.clone()
+    };
+
+    let matched = st
+        .cfg
+        .find_credential(&domain, &b.user)
+        .is_some_and(|c| c.password == b.password);
+
+    st.log.event(
+        "auth",
+        &[
+            ("scheme", "basic"),
+            ("ip", ip.as_str()),
+            ("domain", domain.as_str()),
+            ("user", b.user.as_str()),
+            // The whole point of the honeypot: record what was tried.
+            ("password", b.password.as_str()),
+            ("result", if matched { "ok" } else { "denied" }),
+        ],
+    );
+
+    if matched {
+        authenticated_exchange(st, body)
+    } else {
+        challenge(st, None)
+    }
+}
+
+fn bad_request(why: &str) -> Response {
+    let mut resp = Response::new(axum::body::Body::from(soap::fault(why)));
+    *resp.status_mut() = StatusCode::BAD_REQUEST;
+    resp.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/soap+xml;charset=UTF-8"),
+    );
+    resp
+}
+
+/// Behaviour once credentials are accepted: `Identify` is answered, everything
+/// else is a fault. Nothing is ever executed.
+fn authenticated_exchange(st: &AppState, body: &Bytes) -> Response {
+    if body.is_empty() {
+        return bad_request("empty request body");
+    }
+    let text = String::from_utf8_lossy(body);
+    if text.contains("Identify") {
+        let mut resp = Response::new(axum::body::Body::from(soap::identify_response(
+            &st.cfg.identity,
+        )));
+        resp.headers_mut().insert(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("application/soap+xml;charset=UTF-8"),
+        );
+        return resp;
+    }
+    let mut resp = Response::new(axum::body::Body::from(soap::fault(
+        "The WS-Management service cannot process the request.",
+    )));
+    *resp.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+    resp.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/soap+xml;charset=UTF-8"),
+    );
+    resp
 }
 
 /// 401 with one `WWW-Authenticate` header per configured scheme, in config
