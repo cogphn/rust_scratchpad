@@ -86,3 +86,16 @@ async fn unrouted_probe_is_also_logged() {
     assert!(log.contains("path=/wsman"), "{log}");
     assert!(log.contains("ua=scanner/1.0"), "{log}");
 }
+
+/// Real IIS answers 411 when a POST declares neither Content-Length nor
+/// chunking; a scanner comparing us against a genuine server expects that.
+#[tokio::test]
+async fn post_without_a_length_is_411_like_iis() {
+    let (addr, _dir) = common::start().await;
+    let resp = common::raw(
+        addr,
+        "POST /wsman HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n",
+    )
+    .await;
+    assert!(common::status_line(&resp).contains("411"), "{resp}");
+}

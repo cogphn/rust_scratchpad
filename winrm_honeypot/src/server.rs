@@ -9,7 +9,7 @@ use axum::body::Bytes;
 use axum::extract::{ConnectInfo, DefaultBodyLimit, Request, State};
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::middleware::Next;
-use axum::response::Response;
+use axum::response::{IntoResponse, Response};
 use axum::routing::post;
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
@@ -122,6 +122,15 @@ async fn wsman_handler(
     let auth = headers
         .get(header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok());
+
+    // Real IIS rejects a POST that declares neither a length nor chunking with
+    // 411, before authentication. Every WS-Man client sends Content-Length, so
+    // matching this is free fidelity for scanners that diff us against IIS.
+    if !headers.contains_key(header::CONTENT_LENGTH)
+        && !headers.contains_key(header::TRANSFER_ENCODING)
+    {
+        return (StatusCode::LENGTH_REQUIRED, "").into_response();
+    }
 
     // Record attempted commands before auth decides: an unauthenticated attempt
     // to run something is the most interesting event a honeypot can see.
