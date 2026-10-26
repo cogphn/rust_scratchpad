@@ -4,7 +4,6 @@
 [server]
 listen = "0.0.0.0:5985"
 schemes = ["negotiate", "basic"]  # order of WWW-Authenticate headers
-anon_identify = true
 
 [identity]
 computer_name = "WIN-SRV01"

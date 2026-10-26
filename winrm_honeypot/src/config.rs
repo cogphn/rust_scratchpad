@@ -26,9 +26,6 @@ pub struct ServerCfg {
     /// Which WWW-Authenticate schemes to advertise, in order.
     #[serde(default = "default_schemes")]
     pub schemes: Vec<Scheme>,
-    /// Answer an unauthenticated WS-Man Identify (some scanners fingerprint this way).
-    #[serde(default = "default_true")]
-    pub anon_identify: bool,
 }
 
 fn default_listen() -> String {
@@ -37,10 +34,6 @@ fn default_listen() -> String {
 
 fn default_schemes() -> Vec<Scheme> {
     vec![Scheme::Negotiate, Scheme::Basic]
-}
-
-fn default_true() -> bool {
-    true
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -99,7 +92,6 @@ impl Default for ServerCfg {
         Self {
             listen: default_listen(),
             schemes: default_schemes(),
-            anon_identify: default_true(),
         }
     }
 }
