@@ -94,3 +94,17 @@ async fn upn_style_user_is_accepted() {
         common::read_log(&dir)
     );
 }
+
+/// A real server answers the empty "do my credentials work?" probe with 200.
+/// pypsrp/NetExec treat a fault there as a failed login, which is exactly how a
+/// real-client test surfaced this.
+#[tokio::test]
+async fn authenticated_empty_post_is_200() {
+    let (addr, _dir) = common::start().await;
+    let req = format!(
+        "POST /wsman HTTP/1.1\r\nHost: x\r\n{}Content-Length: 0\r\nConnection: close\r\n\r\n",
+        common::basic_authorization("CORP\\Administrator:Summer2026!")
+    );
+    let resp = common::raw(addr, &req).await;
+    assert!(common::status_line(&resp).contains("200"), "{resp}");
+}

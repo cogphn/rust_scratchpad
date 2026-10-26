@@ -466,7 +466,10 @@ fn bad_request(why: &str) -> Response {
 /// else is a fault. Nothing is ever executed.
 fn authenticated_exchange(st: &AppState, body: &Bytes) -> Response {
     if body.is_empty() {
-        return bad_request("empty request body");
+        // This is the "are my credentials accepted?" probe: pypsrp (and so
+        // NetExec) sends an empty POST after the NTLM handshake and treats a
+        // fault as a failed login. A real server answers 200 with no body.
+        return Response::new(axum::body::Body::empty());
     }
     let text = String::from_utf8_lossy(body);
     if text.contains("Identify") {
