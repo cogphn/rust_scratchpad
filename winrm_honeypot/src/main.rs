@@ -23,6 +23,9 @@ struct Args {
     /// Override log.path ("-" = stdout)
     #[arg(long)]
     log_file: Option<String>,
+    /// Validate the configuration and exit: no sockets, no log file.
+    #[arg(long)]
+    check_config: bool,
 }
 
 #[tokio::main]
@@ -41,6 +44,15 @@ async fn main() -> Result<()> {
     }
     if let Some(path) = args.log_file {
         cfg.log.path = path;
+    }
+
+    if args.check_config {
+        println!(
+            "config OK: {} credentials, listen {}",
+            cfg.credentials.len(),
+            cfg.server.listen
+        );
+        return Ok(());
     }
 
     let log = Arc::new(EventLog::open(&cfg.log.path)?);
