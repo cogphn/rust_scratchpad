@@ -58,6 +58,7 @@ pub async fn start_with_password(password: &str) -> (SocketAddr, tempfile::TempD
     let state = Arc::new(AppState {
         cfg: Arc::new(cfg),
         log,
+        pending: std::sync::Mutex::new(std::collections::HashMap::new()),
     });
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
