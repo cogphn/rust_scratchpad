@@ -1,0 +1,25 @@
+# WinRM honeypot — example configuration. Copy to config.toml and edit.
+# NEVER reuse real credentials here: anything in this file is bait.
+
+[server]
+listen = "0.0.0.0:5985"
+schemes = ["negotiate", "basic"]  # order of WWW-Authenticate headers
+anon_identify = true
+
+[identity]
+computer_name = "WIN-SRV01"
+domain = "CORP"
+dns_domain = "corp.local"
+os_version = "10.0.20348"          # Windows Server 2022
+
+[log]
+path = "logs/winrm-events.log"     # "-" = stdout (for containers)
+
+[[credentials]]
+domain = "CORP"
+username = "Administrator"
+password = "Summer2026!"
+
+[[credentials]]
+username = "svc_backup"            # domain defaults to identity.domain
+password = "B@ckup!23"
