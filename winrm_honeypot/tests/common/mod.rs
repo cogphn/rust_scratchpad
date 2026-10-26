@@ -37,15 +37,19 @@ pub fn header_values(resp: &str, name: &str) -> Vec<String> {
 /// Spawns a server on an ephemeral port. Returns the bound address and the
 /// temp dir holding the event log (keep it alive for the duration of the test).
 pub async fn start() -> (SocketAddr, tempfile::TempDir) {
+    start_with_password("Summer2026!").await
+}
+
+pub async fn start_with_password(password: &str) -> (SocketAddr, tempfile::TempDir) {
     let dir = tempfile::tempdir().unwrap();
-    let mut cfg = Config::from_toml_str(
+    let mut cfg = Config::from_toml_str(&format!(
         r#"
         [[credentials]]
         domain = "CORP"
         username = "Administrator"
-        password = "Summer2026!"
-        "#,
-    )
+        password = "{password}"
+        "#
+    ))
     .unwrap();
     cfg.server.listen = "127.0.0.1:0".to_string();
     cfg.log.path = dir.path().join("events.log").to_str().unwrap().to_string();
@@ -71,4 +75,13 @@ pub async fn start() -> (SocketAddr, tempfile::TempDir) {
 
 pub fn read_log(dir: &tempfile::TempDir) -> String {
     std::fs::read_to_string(dir.path().join("events.log")).unwrap_or_default()
+}
+
+/// `Authorization: Basic base64(user:pass)`, ready to splice into a request.
+pub fn basic_authorization(user_pass: &str) -> String {
+    use base64::Engine;
+    format!(
+        "Authorization: Basic {}\r\n",
+        base64::engine::general_purpose::STANDARD.encode(user_pass)
+    )
 }
