@@ -4,6 +4,11 @@
 //!   cpal input callback --(rtrb ring buffer)--> processing thread
 //!       --(crossbeam channel)--> writer thread --> WAV file on disk
 //!
+//! Recordings are written to `event_*.wav.part`, finalized, then renamed to
+//! `event_*.wav`, so a file only ever appears under a finished name once it is
+//! complete - a failed write deletes the `.part` file instead of leaving a
+//! truncated clip behind.
+//!
 //! The processing thread keeps a rolling 1s "pre-roll" buffer at all times,
 //! runs a simple energy-based detector, and drives a state machine that
 //! captures: 1s before the event + up to 10s of the event itself + 2s after,
@@ -357,22 +362,84 @@ fn spawn_writer_thread(
     })
 }
 
+/// Writes `job` to `path`, never leaving a file at `path` that looks like a
+/// complete recording but is not one.
+///
+/// Samples go to a sibling `*.part` file; the header is finalized so the
+/// declared length matches whatever actually reached the disk, even if the
+/// transfer failed halfway; only a complete, finalized file is renamed into
+/// place. Any failure removes the `.part` file and propagates the error, so a
+/// consumer scanning OUTPUT_DIR can never pick up a truncated clip or a WAV
+/// whose header declares zero samples.
 fn write_wav(path: &str, job: &RecordingJob) -> Result<()> {
+    let part = format!("{path}.part");
+    match write_wav_partial(&part, job) {
+        Ok(()) => {
+            if let Err(e) = std::fs::rename(&part, path) {
+                let _ = std::fs::remove_file(&part);
+                return Err(anyhow::Error::new(e))
+                    .with_context(|| format!("publishing {part} as {path}"));
+            }
+            Ok(())
+        }
+        Err(e) => {
+            // Drop anything half-written rather than keeping an unreadable or
+            // tail-less clip under a plausible name. The error is logged by the
+            // caller, so the loss is visible.
+            let _ = std::fs::remove_file(&part);
+            Err(e)
+        }
+    }
+}
+
+fn write_wav_partial(part: &str, job: &RecordingJob) -> Result<()> {
     let spec = hound::WavSpec {
         channels: job.channels,
         sample_rate: job.sample_rate,
         bits_per_sample: 16,
         sample_format: hound::SampleFormat::Int,
     };
-    let mut writer = hound::WavWriter::create(path, spec).context("creating wav writer")?;
-    for &s in &job.samples {
+    let writer = hound::WavWriter::create(part, spec).context("creating wav writer")?;
+    finish_wav(writer, &job.samples)
+}
+
+/// Writes `samples` into `writer` and finalizes it *unconditionally*.
+///
+/// The unconditional part is the fix: if a sample write fails, the header must
+/// still be rewritten from `data_bytes_written` so the file is self-consistent,
+/// and the finalize error must be observed instead of being left to hound's
+/// silent `Drop` retry (which cannot recover when the leftover `BufWriter`
+/// buffer is unflushable, leaving a WAV whose header declares zero samples).
+fn finish_wav<W: std::io::Write + std::io::Seek>(
+    mut writer: hound::WavWriter<W>,
+    samples: &[f32],
+) -> Result<()> {
+    // Stop at the first failure: a failing write means the target is in
+    // trouble, so retrying every remaining sample just spams errors.
+    let mut write_err = None;
+    for &s in samples {
         let clamped = s.clamp(-1.0, 1.0);
         let sample_i16 = (clamped * i16::MAX as f32) as i16;
-        writer.write_sample(sample_i16)?;
+        if let Err(e) = writer.write_sample(sample_i16) {
+            write_err = Some(e);
+            break;
+        }
     }
-    writer.finalize()?;
-    Ok(())
+
+    // `finalize` consumes the writer, so this cannot be skipped by an early
+    // `?` on a sample write.
+    let finalize_err = writer.finalize().err();
+
+    match (write_err, finalize_err) {
+        (Some(e), _) => Err(anyhow::Error::new(e).context(format!(
+            "writing samples ({} in clip)",
+            samples.len()
+        ))),
+        (None, Some(e)) => Err(anyhow::Error::new(e).context("finalizing wav")),
+        (None, None) => Ok(()),
+    }
 }
+
 
 // ---------------------------------------------------------------------
 // Audio capture (cpal) + real-time -> processing handoff
@@ -510,4 +577,205 @@ fn main() -> Result<()> {
 #[allow(dead_code)]
 fn output_path(name: &str) -> PathBuf {
     PathBuf::from(OUTPUT_DIR).join(name)
+}
+
+// ---------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A throwaway destination path inside a per-test directory.
+    fn dest(tag: &str) -> String {
+        let dir = std::env::temp_dir().join(format!("adet_wav_{}_{tag}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir.join("event_test.wav").to_string_lossy().into_owned()
+    }
+
+    fn job(channels: u16, frames: usize) -> RecordingJob {
+        RecordingJob {
+            samples: vec![0.25; frames * channels as usize],
+            channels,
+            sample_rate: 44_100,
+        }
+    }
+
+    fn part_of(path: &str) -> std::path::PathBuf {
+        std::path::PathBuf::from(format!("{path}.part"))
+    }
+
+    #[test]
+    fn complete_recording_is_published_with_a_valid_header() {
+        let path = dest("ok");
+        write_wav(&path, &job(1, 4410)).expect("write should succeed");
+
+        assert!(std::path::Path::new(&path).exists(), "final file missing");
+        assert!(!part_of(&path).exists(), ".part file left behind");
+
+        let reader = hound::WavReader::open(&path).expect("output must be a readable wav");
+        assert_eq!(reader.duration(), 4410, "declared length must match samples");
+        assert_eq!(reader.spec().channels, 1);
+        assert_eq!(reader.spec().sample_rate, 44_100);
+    }
+
+    #[test]
+    fn failed_finalize_publishes_nothing() {
+        // An odd sample count for a stereo file makes hound fail at finalize
+        // (UnfinishedSample), after the samples were already written.
+        let path = dest("unfinished");
+        let mut j = job(2, 100);
+        j.samples.pop();
+        assert_eq!(j.samples.len() % 2, 1);
+
+        assert!(write_wav(&path, &j).is_err(), "must report the failure");
+        assert!(
+            !std::path::Path::new(&path).exists(),
+            "a half-written clip must never appear at the final path"
+        );
+        assert!(!part_of(&path).exists(), ".part file left behind after failure");
+    }
+
+    #[test]
+    fn failed_publish_cleans_up_the_part_file() {
+        // A directory squatting on the destination makes the final rename fail.
+        let path = dest("blocked");
+        std::fs::create_dir_all(&path).unwrap();
+
+        assert!(write_wav(&path, &job(1, 100)).is_err());
+        assert!(!part_of(&path).exists(), ".part file left behind after failed rename");
+    }
+
+    // -----------------------------------------------------------------
+    // Sample-write failure: the bug this fix is about. `?` on write_sample
+    // used to skip finalize and leave a WAV whose header declared 0 samples.
+    // -----------------------------------------------------------------
+
+    /// In-memory WAV target that fails writes once `limit` bytes exist, like a
+    /// filesystem that just ran out of space. With `recover` set, writes start
+    /// working again after the first failure (a transient I/O error).
+    struct FakeDisk {
+        data: Vec<u8>,
+        pos: usize,
+        limit: usize,
+        recover: bool,
+        full: bool,
+    }
+
+    impl FakeDisk {
+        fn new(limit: usize, recover: bool) -> Self {
+            Self { data: Vec::new(), pos: 0, limit, recover, full: false }
+        }
+    }
+
+    fn full() -> std::io::Error {
+        std::io::Error::from(std::io::ErrorKind::StorageFull)
+    }
+
+    impl std::io::Write for FakeDisk {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            if self.full && !self.recover {
+                return Err(full());
+            }
+            // Growing past the limit fails; overwriting existing bytes is fine.
+            let cap = if self.full { usize::MAX } else { self.limit.max(self.data.len()) };
+            let n = cap.saturating_sub(self.pos).min(buf.len());
+            if n == 0 {
+                self.full = true;
+                return Err(full());
+            }
+            if self.pos + n > self.data.len() {
+                self.data.resize(self.pos + n, 0);
+            }
+            self.data[self.pos..self.pos + n].copy_from_slice(&buf[..n]);
+            self.pos += n;
+            if n < buf.len() {
+                self.full = true;
+                return Err(full());
+            }
+            Ok(n)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl std::io::Seek for FakeDisk {
+        fn seek(&mut self, p: std::io::SeekFrom) -> std::io::Result<u64> {
+            let new = match p {
+                std::io::SeekFrom::Start(o) => o as i64,
+                std::io::SeekFrom::Current(d) => self.pos as i64 + d,
+                std::io::SeekFrom::End(d) => self.data.len() as i64 + d,
+            };
+            assert!(new >= 0);
+            if self.full && !self.recover {
+                return Err(full()); // seeking flushes the BufWriter above us
+            }
+            self.pos = new as usize;
+            Ok(self.pos as u64)
+        }
+    }
+
+    #[derive(Clone)]
+    struct Shared(std::rc::Rc<std::cell::RefCell<FakeDisk>>);
+
+    impl std::io::Write for Shared {
+        fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
+            self.0.borrow_mut().write(b)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.0.borrow_mut().flush()
+        }
+    }
+
+    impl std::io::Seek for Shared {
+        fn seek(&mut self, p: std::io::SeekFrom) -> std::io::Result<u64> {
+            self.0.borrow_mut().seek(p)
+        }
+    }
+
+    fn spec() -> hound::WavSpec {
+        hound::WavSpec {
+            channels: 1,
+            sample_rate: 44_100,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        }
+    }
+
+    #[test]
+    fn sample_write_error_is_reported_not_swallowed() {
+        let disk = std::rc::Rc::new(std::cell::RefCell::new(FakeDisk::new(44 + 2_000, false)));
+        let writer =
+            hound::WavWriter::new(std::io::BufWriter::new(Shared(disk.clone())), spec()).unwrap();
+
+        let err = finish_wav(writer, &vec![0.5f32; 44_100]).expect_err("must report failure");
+        let msg = format!("{err:#}");
+        assert!(msg.contains("writing samples"), "unexpected error: {msg}");
+    }
+
+    #[test]
+    fn sample_write_error_still_finalizes_the_header() {
+        // Transient error: writes succeed again after the failure, so this
+        // checks that finish_wav really does finalize after a write error and
+        // leaves a readable, self-consistent WAV. (Under a persistent error
+        // finalize cannot succeed either - write_wav then discards the .part
+        // file, which failed_finalize_publishes_nothing covers.)
+        let disk = std::rc::Rc::new(std::cell::RefCell::new(FakeDisk::new(44 + 4_000, true)));
+        let writer =
+            hound::WavWriter::new(std::io::BufWriter::new(Shared(disk.clone())), spec()).unwrap();
+
+        assert!(finish_wav(writer, &vec![0.5f32; 44_100]).is_err());
+
+        let bytes = disk.borrow().data.clone();
+        let declared = u32::from_le_bytes(bytes[40..44].try_into().unwrap());
+        assert!(
+            declared > 0,
+            "header was never finalized after the write error (declared data length = 0)"
+        );
+        let reader = hound::WavReader::new(std::io::Cursor::new(bytes)).expect("must be readable");
+        assert!(reader.duration() > 0);
+    }
 }

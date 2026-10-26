@@ -18,3 +18,5 @@ mpush/*
 etw_tests/notes.sql
 .continue/agents/new-config.yaml
 adet/recordings/
+adet/classifications.csv
+rumms/*
